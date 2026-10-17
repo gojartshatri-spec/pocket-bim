@@ -212,6 +212,16 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .send{width:42px;height:42px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
 .send svg{width:20px;height:20px}
 .send:disabled{opacity:.4}
+.segm button:disabled{opacity:.35}
+.dlgc .segm{align-self:flex-start;flex-wrap:wrap;height:auto}
+.dlgc .segm button{height:32px}
+.chip3d select{font:500 12px var(--f-cond);height:28px;padding:0 6px;border-radius:6px;background:var(--chrome);border:1px solid var(--line);color:var(--ink);max-width:150px}
+.secEmpty{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5;pointer-events:none}
+.secEmpty b{color:var(--ink)}
+.sunp{position:absolute;left:10px;right:10px;top:48px;z-index:2;display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:10px 12px;background:var(--chrome);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shade);max-width:520px}
+.sunp input[type=range]{width:100%;accent-color:var(--accent)}
+.sunr{width:100%;font:12px var(--f-mono);color:var(--muted)}
+#sunBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){.nav{animation:slidein .18s ease-out}.dlg{animation:rise .18s ease-out}}
 @keyframes slidein{from{transform:translateX(-30px);opacity:.6}}
 @keyframes rise{from{transform:translateY(24px);opacity:.6}}
@@ -229,6 +239,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button class="tab" role="tab" data-view="plan" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18"/><path d="M3 12h9V3M12 12v9"/></svg><span id="tabPlan">0. Ground Floor</span></button>
     <button class="tab" role="tab" data-view="3d" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>3D</button>
     <button class="tab" role="tab" data-view="split" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18"/><path d="M3 12h18"/></svg>Plan + 3D</button>
+    <button class="tab" role="tab" data-view="section" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2 21h20"/><path d="M4 21V11l8-7 8 7v10" /><path d="M4 11h16M9 21v-6h6v6"/></svg>Section</button>
   </div>
   <div class="infobox" id="infobox"></div>
 
@@ -244,7 +255,18 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
           <div class="chainbar" id="chainbar" hidden></div>
         </div>
         <div class="pane" id="threePane" hidden>
-          <div class="chip3d"><span>Generic Perspective</span><button id="fit3">Fit</button></div>
+          <div class="chip3d"><span>Generic Perspective</span><button id="fit3">Fit</button><button id="sunBtn" aria-pressed="false">Sun study</button></div>
+          <div class="sunp" id="sunp" hidden>
+            <label class="fld"><span>Date</span><span class="fin"><select id="sunM"></select></span></label>
+            <label class="fld" style="flex:1"><span>Time <b id="sunH"></b></span><input type="range" id="sunR" min="5" max="21" step=".25"></label>
+            <label class="fld"><span>Latitude</span><span class="fin"><input id="sunL" type="text" inputmode="decimal" style="width:52px"><i>°</i></span></label>
+            <div class="sunr" id="sunRead"></div>
+          </div>
+        </div>
+        <div class="pane" id="secPane" hidden>
+          <canvas id="sec"></canvas>
+          <div class="chip3d"><select id="secSel" aria-label="Section"></select><button id="secFlip">Look other way</button><button id="secFit">Fit</button></div>
+          <div class="secEmpty" id="secEmpty" hidden><div><b>No sections yet</b><br>Go to the plan, pick the Section tool and drag a line across the building.</div></div>
         </div>
         <button class="ask" id="askBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9.5l-5.7 1.9L12 17l-1.8-5.6L4.5 9.5l5.7-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Ask AI</button>
       </div>
@@ -261,6 +283,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <button class="qtog" data-opt="ortho" aria-pressed="true">Ortho</button>
       <button class="qtog" data-opt="trace" aria-pressed="true">Trace</button>
       <button class="qtog" data-opt="all3d" aria-pressed="true" id="qAll3d" hidden>All stories in 3D</button>
+      <button class="qchip" id="qLayers" style="font-family:var(--f-cond)">Layers</button>
+      <button class="qchip" id="qChecks" style="font-family:var(--f-cond)">Checks</button>
+      <button class="qchip" id="qCloud" style="font-family:var(--f-cond)" hidden>Cloud</button>
     </div>
   </div>
 
@@ -289,6 +314,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <hr>
     <button id="mCopy">Copy project as JSON</button>
     <button id="mImport">Import project JSON…</button>
+    <hr>
+    <button id="mExport">Export drawings (PDF, PNG, CSV)…</button>
+    <button id="mCloud" hidden>Cloud projects…</button>
   </div>
   <div class="dlgbg" id="dlgBg" hidden><div class="dlg" role="dialog" aria-modal="true" id="dlg"></div></div>
   <div class="toast" id="toast" hidden></div>
@@ -303,7 +331,13 @@ const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 const r3 = v => Math.round(v * 1000) / 1000;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KEY = 'pocketbim.v2', OLDKEY = 'pocketbim.v1';
-const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', zone: 'zones', dim: 'dims', furn: 'furniture' };
+const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', zone: 'zones', dim: 'dims', furn: 'furniture', section: 'sections', rail: 'rails', beam: 'beams', label: 'labels' };
+// Elements drawn from a start point to an end point (x1,y1 → x2,y2): they share the line tool, handles and move logic
+const LINEK = new Set(['dim', 'section', 'rail', 'beam', 'label']);
+const LAYER_DEF = { zones: true, furn: true, mill: true, dims: true, annot: true, struct: true };
+const LAYER_NAMES = { zones: 'Zones', furn: 'Furniture', mill: 'Millwork', dims: 'Dimensions', annot: 'Text, tags & markers', struct: 'Columns & beams' };
+const FINISHES = { '': 'Core colour', render: 'Render', brick: 'Face brick', timber: 'Timber', concrete: 'Exposed concrete', stone: 'Stone', tile: 'Tile' };
+const FLOORS = { '': 'None', timber: 'Timber', tile: 'Tile', concrete: 'Polished concrete', stone: 'Stone', carpet: 'Carpet' };
 // Object library. w = width, d = depth (back to front), h = height; wall: turns its back to a nearby wall when placed
 const FURN = {
   bed2: { label: 'Bed, double', w: 1.6, d: 2.0, h: .5, wall: 1 }, bed1: { label: 'Bed, single', w: .9, d: 2.0, h: .5, wall: 1 },
@@ -315,12 +349,17 @@ const FURN = {
   stove: { label: 'Stove', w: .6, d: .6, h: .9, wall: 1 }, fridge: { label: 'Fridge', w: .6, d: .65, h: 1.85, wall: 1 },
   wc: { label: 'Toilet', w: .4, d: .7, h: .8, wall: 1 }, basin: { label: 'Washbasin', w: .6, d: .45, h: .85, wall: 1 },
   bath: { label: 'Bathtub', w: 1.7, d: .75, h: .55, wall: 1 }, shower: { label: 'Shower tray', w: .9, d: .9, h: .05, wall: 1 },
-  plant: { label: 'Plant', w: .5, d: .5, h: 1.0, wall: 0 }
+  plant: { label: 'Plant', w: .5, d: .5, h: 1.0, wall: 0 },
+  // millwork: parametric cabinets (doors, plinth, elevation above floor)
+  base: { label: 'Base cabinet', w: .6, d: .6, h: .9, wall: 1, mill: 1, doors: 1, plinth: .1 },
+  tall: { label: 'Tall cabinet', w: .6, d: .6, h: 2.2, wall: 1, mill: 1, doors: 1, plinth: .1 },
+  upper: { label: 'Wall cabinet', w: .8, d: .35, h: .7, wall: 1, mill: 1, doors: 2, plinth: 0, elev: 1.45 }
 };
+const isMill = f => !!(f && FURN[f.type] && FURN[f.type].mill);
 const RECT = new Set(['slab', 'roof', 'stair', 'zone']);
 const ZONE_COLORS = ['#e3b04b', '#6fa9d6', '#8cbf88', '#d68aa5', '#a79be0', '#e08a5c', '#6cc1b6'];
 const MATS = { brick: 'Brick', block: 'Block', concrete: 'Concrete', gypsum: 'Gypsum board' };
-const NAMES = { select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dimension', furn: 'Object' };
+const NAMES = { select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dimension', furn: 'Object', section: 'Section', rail: 'Railing', beam: 'Beam', label: 'Text', mill: 'Millwork', measure: 'Measure', pin: 'Comment' };
 
 const I = {
   select: '<path d="M6 3l12 9-5.2 1.1 3 6.4-2.6 1.2-3-6.4L6 18z" fill="currentColor"/>',
@@ -343,13 +382,27 @@ const I = {
   hinge: '<path d="M5 20V5h3" stroke="currentColor" stroke-width="1.8"/><path d="M8 5a15 15 0 0 1 11 15" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="20" r="1.8" fill="currentColor"/>',
   story: '<path d="M3 20h18M3 14h18M3 8h18M7 20v-6M17 14V8" stroke="currentColor" stroke-width="1.6"/>',
   cube: '<path d="M12 2 21 7v10l-9 5-9-5V7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 7l9 5 9-5M12 12v10" stroke="currentColor" stroke-width="1.6"/>',
-  house: '<path d="M3 11 12 3l9 8M5 9.5V21h14V9.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>'
+  house: '<path d="M3 11 12 3l9 8M5 9.5V21h14V9.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+  section: '<path d="M3 12h18" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 2 1 2"/><path d="M2.5 12h4M17.5 12h4" stroke="currentColor" stroke-width="2.6"/><path d="M3 13.5h4l-2 4z" fill="currentColor"/><path d="M17 13.5h4l-2 4z" fill="currentColor"/><circle cx="5" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/><circle cx="19" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/>',
+  open: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>',
+  export: '<path d="M12 3v12M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v4h16v-4" stroke="currentColor" stroke-width="1.8"/>',
+  beam: '<path d="M2 9h20M2 15h20" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M2 12h20" stroke="currentColor" stroke-width="1" stroke-dasharray="6 2 1 2"/>',
+  rail: '<path d="M3 7h18M3 17h18" stroke="currentColor" stroke-width="1.8"/><path d="M5 7v10M12 7v10M19 7v10" stroke="currentColor" stroke-width="1.4"/>',
+  mill: '<rect x="3" y="4" width="18" height="16" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h18M12 8v12M3 18h18" stroke="currentColor" stroke-width="1.3"/><path d="M10 13v2M14 13v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  label: '<path d="M4 20 11 13" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="20" r="1.6" fill="currentColor"/><path d="M11 13h10M13 6h8M13 9.5h6M17 6v7" stroke="currentColor" stroke-width="1.6"/>',
+  measure: '<path d="M3 16 16 3l5 5L8 21z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 12l2 2M10 9l1.5 1.5M13 6l2 2" stroke="currentColor" stroke-width="1.3"/>',
+  pin: '<path d="M4 5h16v11H10l-4 4v-4H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.4"/>',
+  layers: '<path d="M12 3 2 8l10 5 10-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 12l10 5 10-5M2 16l10 5 10-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  cloud: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.2 4.5 4.5 0 0 0 7 18z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  sun: '<circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  warn: '<path d="M12 3 2 20h20z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9v5M12 16.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  elev: '<rect x="3" y="3" width="18" height="18" stroke="currentColor" stroke-width="1.5"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.5"/><path d="M12 9l2 3h-4zM12 15l-2-3h4z" fill="currentColor"/>'
 };
 const icon = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" class="${cls}" aria-hidden="true">${I[n] || ''}</svg>`;
 
 /* ================= model ================= */
 function emptyModel() {
-  return { name: 'Untitled Project', stories: [{ id: uid(), name: 'Ground Floor', elev: 0, h: 3 }], walls: [], openings: [], columns: [], slabs: [], roofs: [], stairs: [], zones: [], dims: [], furniture: [] };
+  return { name: 'Untitled Project', stories: [{ id: uid(), name: 'Ground Floor', elev: 0, h: 3 }], walls: [], openings: [], columns: [], slabs: [], roofs: [], stairs: [], zones: [], dims: [], furniture: [], sections: [], rails: [], beams: [], labels: [], layers: { ...LAYER_DEF } };
 }
 function sampleModel() {
   const g = { id: uid(), name: 'Ground Floor', elev: 0, h: 3 }, u = { id: uid(), name: 'Upper Floor', elev: 3, h: 3 };
@@ -360,7 +413,7 @@ function sampleModel() {
   const Z = (st, x1, y1, x2, y2, name, num, c) => m.zones.push({ id: uid(), st: st.id, x: x1, y: y1, w: x2 - x1, h: y2 - y1, name, num, c });
   const S = (st, x, y, w, h, t) => m.slabs.push({ id: uid(), st: st.id, x, y, w, h, t });
   // ground floor
-  let n = W(g, 0, 0, 10, 0), e = W(g, 10, 0, 10, 8), s = W(g, 10, 8, 0, 8); W(g, 0, 8, 0, 0);
+  let n = W(g, 0, 0, 10, 0), e = W(g, 10, 0, 10, 8), s = W(g, 10, 8, 0, 8); W(g, 0, 8, 0, 0); const gS = s;
   const i1 = W(g, 6, 0, 6, 8, .15, 'block'); W(g, 6, 4.5, 10, 4.5, .15, 'block'); const i3 = W(g, 0, 3, 6, 3, .15, 'block');
   D(s, 6, 1.0); N(s, 8.2, 1.8, 1.5, .8); N(s, 1.6, .8, .8, 1.4); N(n, 3, 1.4); N(n, 8, 1.4); N(e, 2.2, 1.2);
   D(i1, 3.8, .8); D(i1, 6.2, .8); D(i3, 4.5, .8);
@@ -382,12 +435,26 @@ function sampleModel() {
   m.roofs.push({ id: uid(), st: u.id, x: -.6, y: -.6, w: 11.2, h: 9.2, pitch: 30, base: 2.8, ridge: 'x', shape: 'gable' });
   // furniture
   m.furniture = [];
-  const O = (st, type, x, y, rot = 0) => { const c = FURN[type]; m.furniture.push({ id: uid(), st: st.id, type, x, y, w: c.w, d: c.d, h: c.h, rot }); };
+  const O = (st, type, x, y, rot = 0) => { const c = FURN[type], f = { id: uid(), st: st.id, type, x, y, w: c.w, d: c.d, h: c.h, rot, elev: c.elev || 0 }; if (c.mill) { f.doors = c.doors; f.plinth = c.plinth; } m.furniture.push(f); return f; };
   O(g, 'bed2', 2.0, 1.15); O(g, 'bed2', 8.0, 1.15); O(g, 'ward', 8.8, 4.125, 180);
   O(g, 'counter', 2.6, 3.375); O(g, 'dining', 3.4, 4.8); O(g, 'sofa', 2.25, 7.4, 180); O(g, 'plant', 5.5, 7.4);
   O(g, 'bath', 9.475, 5.5, 90); O(g, 'wc', 8.0, 7.5, 180); O(g, 'basin', 7.0, 7.625, 180);
   O(u, 'bed2', 2.5, 1.15); O(u, 'ward', 1.4, 3.825, 180); O(u, 'bed2', 7.5, 1.15); O(u, 'desk', 9.55, 3.3, 90);
   O(u, 'shower', 9.4, 4.75, 90); O(u, 'wc', 8.6, 7.5, 180); O(u, 'basin', 9.625, 6.6, 90); O(u, 'plant', 6.3, 7.4);
+  // kitchen millwork above the counter run, and a tall unit beside it
+  for (const x of [1.8, 2.6, 3.4]) O(g, 'upper', x, 3.25);
+  O(g, 'tall', 4.15, 3.375);
+  // finishes
+  for (const w of m.walls) if (w.t >= .3) w.fin = 'render';
+  for (const z of m.zones) { z.floor = /bath/i.test(z.name) ? 'tile' : /hall/i.test(z.name) ? 'stone' : 'timber'; z.fin = /bath/i.test(z.name) ? 'Walls: ceramic tile to 2.1 m' : 'Walls: paint, white'; }
+  // guard rail at the stair void, beam over the canopy, a material note and a dimension chain on the south wall
+  m.rails = [{ id: uid(), st: u.id, x1: 1.2, y1: 4.3, x2: 1.2, y2: 7.85, h: 1.0 }];
+  m.beams = [{ id: uid(), st: g.id, x1: 2.9, y1: 9.75, x2: 5.1, y2: 9.75, w: .2, h: .3, top: 2.6 }];
+  m.labels = [{ id: uid(), st: g.id, x1: 10.1, y1: 6.2, x2: 11.2, y2: 7.2, text: '300 brick, render finish', size: 10 }];
+  m.dims.push({ id: uid(), st: g.id, wid: gS.id, off: -1.05, x1: 10, y1: 8, x2: 0, y2: 8 });
+  // sections: A cuts across the gable, B runs along the house through the stair
+  m.layers = { ...LAYER_DEF };
+  m.sections = [{ id: uid(), name: 'A', x1: 4.2, y1: 11, x2: 4.2, y2: -1.4, flip: 1, depth: 20 }, { id: uid(), name: 'B', x1: -1.4, y1: 5.9, x2: 11.4, y2: 5.9, flip: -1, depth: 20 }];
   return m;
 }
 function migrate(m) {
@@ -398,6 +465,7 @@ function migrate(m) {
       zones: (m.rooms || []).map((r, i) => ({ ...r, st: st.id, num: String(i + 1).padStart(3, '0') })) };
   }
   for (const k of Object.values(LISTS)) if (!Array.isArray(m[k])) m[k] = [];
+  m.layers = { ...LAYER_DEF, ...(m.layers && typeof m.layers === 'object' ? m.layers : {}) };
   m.name = m.name || 'My Project';
   return m;
 }
@@ -418,12 +486,15 @@ let curStory = stories()[0].id;
 
 /* ================= state ================= */
 let tool = 'select', sel = null, viewMode = 'plan', chain = null, op = null;
-const opts = { grid: true, ortho: true, trace: true, all3d: true, scale: 100 };
+const opts = { grid: true, ortho: true, trace: true, all3d: true, scale: 100, sun: { on: false, month: 6, hour: 15, lat: 42.66 } };
+let meas = null; // temporary measurement on the plan (never saved)
 const defaults = {
   wall: { t: .3, h: 2.8, mat: 'brick', method: 'single' }, door: { w: .9, h: 2.1, sill: 0 }, window: { w: 1.2, h: 1.4, sill: .9 },
   column: { w: .3, d: .3, h: 2.8, round: false }, slab: { t: .25 }, roof: { pitch: 30, base: 2.8, shape: 'gable', ridge: 'auto' },
-  stair: { w: 1.0 }, zone: { name: 'Room' }, dim: { off: .6 }, furn: { type: 'sofa', w: 2.0, d: .9, h: .8, rot: 0 }
+  stair: { w: 1.0 }, zone: { name: 'Room' }, dim: { off: .6 }, furn: { type: 'sofa', w: 2.0, d: .9, h: .8, rot: 0 }, section: { depth: 20 },
+  rail: { h: 1.0 }, beam: { w: .25, h: .4, top: 2.8 }, label: { size: 10 }, mill: { type: 'base', w: .6, d: .6, h: .9, doors: 1, plinth: .1, elev: 0, rot: 0 }
 };
+let curSec = null, ver = 0;
 let undoStack = [], redoStack = [];
 const snapshot = () => JSON.stringify(model);
 function pushUndo(s = snapshot()) { undoStack.push(s); if (undoStack.length > 120) undoStack.shift(); redoStack = []; updUndo(); }
@@ -436,7 +507,7 @@ $('#undo').onclick = () => {
 };
 $('#redo').onclick = () => { if (!redoStack.length) return; undoStack.push(snapshot()); model = JSON.parse(redoStack.pop()); afterRestore(); };
 let dirty3 = true;
-function changed() { save(); requestDraw(); dirty3 = true; request3(); renderInfo(); renderChrome(); if (!$('#nav').hidden) renderNav(); }
+function changed() { ver++; requestSec(); save(); if (typeof cloudChanged === 'function') cloudChanged(); requestDraw(); dirty3 = true; request3(); renderInfo(); renderChrome(); if (!$('#nav').hidden) renderNav(); }
 
 /* ================= geometry ================= */
 const wallById = id => model.walls.find(w => w.id === id);
@@ -452,9 +523,20 @@ const inRect = (p, r, m = 0) => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >=
 const rectCorners = r => [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
 function nearRectEdge(p, r, tol) { const c = rectCorners(r); for (let i = 0; i < 4; i++) if (segDistPts(p, c[i], c[(i + 1) % 4]).d < tol) return true; return false; }
 function normRect(a, b) { return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }; }
+// Junction-aware ends: a wall end grows by half its thickness only where it meets another wall, so corners close and free ends stop on the line.
+function wallEnds(w) {
+  const r = [0, 0];
+  [['1', 0], ['2', 1]].forEach(([k, i]) => {
+    const p = { x: w['x' + k], y: w['y' + k] };
+    for (const o of model.walls) { if (o === w || o.st !== w.st || w.st == null) continue; if (segDistPts(p, [o.x1, o.y1], [o.x2, o.y2]).d < o.t / 2 + .01) { r[i] = w.t / 2; break; } }
+  });
+  return r;
+}
+const MAT_RANK = { gypsum: 1, block: 2, brick: 3, concrete: 4 };
+const wallPriority = w => w.t * 10 + (MAT_RANK[w.mat] || 2);
 function wallQuad(w, ext = true) {
-  const g = wgeo(w), e = ext ? w.t / 2 : 0, h = w.t / 2;
-  const ax = w.x1 - g.ux * e, ay = w.y1 - g.uy * e, bx = w.x2 + g.ux * e, by = w.y2 + g.uy * e;
+  const g = wgeo(w), [e1, e2] = ext ? wallEnds(w) : [0, 0], h = w.t / 2;
+  const ax = w.x1 - g.ux * e1, ay = w.y1 - g.uy * e1, bx = w.x2 + g.ux * e2, by = w.y2 + g.uy * e2;
   return [[ax + g.nx * h, ay + g.ny * h], [bx + g.nx * h, by + g.ny * h], [bx - g.nx * h, by - g.ny * h], [ax - g.nx * h, ay - g.ny * h]];
 }
 function dimPts(d) {
@@ -478,6 +560,7 @@ function inFurn(p, f, m = 0) {
 }
 const risers = s => { const st = storyOf(s.st); return Math.max(3, Math.round((st ? st.h : 3) / .175)); };
 function clampOpenings() {
+  model.dims = model.dims.filter(d => !d.wid || wallById(d.wid));
   model.openings = model.openings.filter(o => {
     const w = wallById(o.wid); if (!w) return false; const L = wlen(w); if (L < o.w + .1) return false;
     o.pos = Math.min(Math.max(o.pos, o.w / 2 + .05), L - o.w / 2 - .05); return true;
@@ -543,11 +626,27 @@ const mk = {
   },
   furn(st, x, y, p = {}) {
     const type = FURN[p.type] ? p.type : defaults.furn.type, c = FURN[type], same = type === defaults.furn.type;
-    const f = { id: uid(), st, type, x: r3(x), y: r3(y), w: num(p.w, same ? defaults.furn.w : c.w), d: num(p.d, same ? defaults.furn.d : c.d), h: num(p.h, same ? defaults.furn.h : c.h), rot: ((num(p.rot, defaults.furn.rot) % 360) + 360) % 360 };
+    const f = { id: uid(), st, type, x: r3(x), y: r3(y), w: num(p.w, same ? defaults.furn.w : c.w), d: num(p.d, same ? defaults.furn.d : c.d), h: num(p.h, same ? defaults.furn.h : c.h), rot: ((num(p.rot, defaults.furn.rot) % 360) + 360) % 360, elev: Math.max(0, num(p.elev, c.elev || 0)) };
+    if (c.mill) { f.doors = Math.max(0, Math.min(8, Math.round(num(p.doors, c.doors)))); f.plinth = Math.max(0, num(p.plinth, c.plinth)); }
     if (![f.x, f.y].every(isFinite)) throw new Error('bad'); model.furniture.push(f); return f;
   },
-  dim(st, x1, y1, x2, y2, p = {}) { const o = { id: uid(), st, x1: r3(x1), y1: r3(y1), x2: r3(x2), y2: r3(y2), off: num(p.off, defaults.dim.off) }; if (![o.x1, o.y1, o.x2, o.y2].every(isFinite)) throw new Error('bad'); model.dims.push(o); return o; }
+  dim(st, x1, y1, x2, y2, p = {}) { const o = { id: uid(), st, x1: r3(x1), y1: r3(y1), x2: r3(x2), y2: r3(y2), off: num(p.off, defaults.dim.off) }; if (![o.x1, o.y1, o.x2, o.y2].every(isFinite)) throw new Error('bad'); model.dims.push(o); return o; },
+  line(kind, st, x1, y1, x2, y2, p = {}) {
+    const o = { id: uid(), st, x1: r3(x1), y1: r3(y1), x2: r3(x2), y2: r3(y2) }, d = defaults[kind];
+    if (![o.x1, o.y1, o.x2, o.y2].every(isFinite)) throw new Error('bad');
+    if (kind === 'rail') o.h = Math.max(.3, num(p.h, d.h));
+    if (kind === 'beam') { o.w = Math.max(.05, num(p.w, d.w)); o.h = Math.max(.05, num(p.h, d.h)); o.top = num(p.top, d.top); }
+    if (kind === 'label') { o.text = String(p.text || 'Note').slice(0, 80); o.size = Math.min(40, Math.max(6, num(p.size, d.size))); }
+    if (kind !== 'label' && Math.hypot(o.x2 - o.x1, o.y2 - o.y1) < .1) throw new Error('short');
+    model[LISTS[kind]].push(o); return o;
+  },
+  section(x1, y1, x2, y2, p = {}) {
+    const o = { id: uid(), name: p.name ? String(p.name).slice(0, 6) : nextSecName(), x1: r3(x1), y1: r3(y1), x2: r3(x2), y2: r3(y2), flip: Number(p.flip) < 0 ? -1 : 1, depth: Math.max(1, num(p.depth, defaults.section.depth)) };
+    if (![o.x1, o.y1, o.x2, o.y2].every(isFinite) || Math.hypot(o.x2 - o.x1, o.y2 - o.y1) < .2) throw new Error('bad'); model.sections.push(o); return o;
+  }
 };
+const SECLET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function nextSecName() { const used = new Set(model.sections.map(s => s.name)); for (const c of SECLET) if (!used.has(c)) return c; return 'S' + (model.sections.length + 1); }
 
 /* ================= fields (Info Box + Settings) ================= */
 const F = (key, label, o = {}) => ({ key, label, type: 'num', step: .05, min: .01, max: 500, unit: 'm', dec: 2, info: true, tmpl: true, ...o });
@@ -556,7 +655,7 @@ const FT = (key, label, o = {}) => ({ key, label, type: 'text', info: true, tmpl
 const XY = (k, l) => F(k, l, { tmpl: false, info: false, min: -1e4, max: 1e4 });
 const stairW = { get: o => o.dir ? (o.dir === 'n' || o.dir === 's' ? o.w : o.h) : o.w, set: (o, v) => { if (!o.dir) { o.w = v; return; } if (o.dir === 'n' || o.dir === 's') { const c = o.x + o.w / 2; o.w = v; o.x = r3(c - v / 2); } else { const c = o.y + o.h / 2; o.h = v; o.y = r3(c - v / 2); } } };
 const FIELDS = {
-  wall: [F('t', 'Thickness', { step: .01, max: 2 }), F('h', 'Height', { max: 30 }), FS('mat', 'Cut fill', MATS),
+  wall: [F('t', 'Thickness', { step: .01, max: 2 }), F('h', 'Height', { max: 30 }), FS('mat', 'Cut fill', MATS), FS('fin', 'Finish (3D)', FINISHES, { get: o => o.fin || '' }),
     F('len', 'Length', { tmpl: false, get: w => wlen(w), set: (w, v) => { const g = wgeo(w); w.x2 = r3(w.x1 + g.ux * v); w.y2 = r3(w.y1 + g.uy * v); } }),
     F('ang', 'Angle', { tmpl: false, info: false, unit: '°', dec: 1, step: 1, min: -360, max: 360, get: w => Math.atan2(w.y1 - w.y2, w.x2 - w.x1) * 180 / Math.PI, set: (w, v) => { const L = wlen(w), a = v * Math.PI / 180; w.x2 = r3(w.x1 + Math.cos(a) * L); w.y2 = r3(w.y1 - Math.sin(a) * L); } }),
     XY('x1', 'Start x'), XY('y1', 'Start y'), XY('x2', 'End x'), XY('y2', 'End y')],
@@ -570,24 +669,32 @@ const FIELDS = {
   stair: [F('width', 'Width', stairW), F('run', 'Run length', { tmpl: false, get: o => stairGeo(o).run, set: (o, v) => { if (o.dir === 'n' || o.dir === 's') o.h = v; else o.w = v; } }),
     FS('dir', 'Goes up to', { n: 'North ↑', e: 'East →', s: 'South ↓', w: 'West ←' }, { tmpl: false, set: (o, v) => { const W = stairW.get(o), R = stairGeo(o).run, cx = o.x + o.w / 2, cy = o.y + o.h / 2; o.dir = v; if (v === 'n' || v === 's') { o.w = W; o.h = R; } else { o.w = R; o.h = W; } o.x = r3(cx - o.w / 2); o.y = r3(cy - o.h / 2); } }),
     F('risers', 'Risers', { tmpl: false, ro: true, unit: '', dec: 0, get: o => risers(o) })],
-  zone: [FT('name', 'Name'), FT('num', 'Number', { tmpl: false }), F('w', 'Width', { tmpl: false }), F('h', 'Depth', { tmpl: false }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: o => o.w * o.h }), XY('x', 'Left x'), XY('y', 'Top y')],
-  furn: [FS('type', 'Object', Object.fromEntries(Object.entries(FURN).map(([k, v]) => [k, v.label])), { set: (o, v) => { const c = FURN[v]; if (!c) return; o.type = v; o.w = c.w; o.d = c.d; o.h = c.h; } }),
-    F('w', 'Width'), F('d', 'Depth'), F('h', 'Height'), F('rot', 'Rotation', { unit: '°', dec: 0, step: 15, min: -360, max: 360, set: (o, v) => o.rot = ((Math.round(v) % 360) + 360) % 360 }),
+  zone: [FT('name', 'Name'), FT('num', 'Number', { tmpl: false }), FS('floor', 'Floor finish', FLOORS, { get: o => o.floor || '' }), FT('fin', 'Wall/ceiling finish', { tmpl: false, info: false, ml: 60, get: o => o.fin || '' }), F('w', 'Width', { tmpl: false }), F('h', 'Depth', { tmpl: false }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: o => o.w * o.h }), XY('x', 'Left x'), XY('y', 'Top y')],
+  furn: [FS('type', 'Object', Object.fromEntries(Object.entries(FURN).map(([k, v]) => [k, v.label])), { set: (o, v) => { const c = FURN[v]; if (!c) return; o.type = v; o.w = c.w; o.d = c.d; o.h = c.h; o.elev = c.elev || 0; if (c.mill) { o.doors = c.doors; o.plinth = c.plinth; } else { delete o.doors; delete o.plinth; } } }),
+    F('w', 'Width'), F('d', 'Depth'), F('h', 'Height'), F('elev', 'Above floor', { min: 0, max: 10, get: o => o.elev || 0 }),
+    F('doors', 'Doors', { unit: '', dec: 0, step: 1, min: 0, max: 8, when: isMill, set: (o, v) => o.doors = Math.round(v) }), F('plinth', 'Plinth', { min: 0, max: .5, when: isMill }),
+    F('rot', 'Rotation', { unit: '°', dec: 0, step: 15, min: -360, max: 360, set: (o, v) => o.rot = ((Math.round(v) % 360) + 360) % 360 }),
     XY('x', 'Centre x'), XY('y', 'Centre y')],
-  dim: [F('off', 'Offset', { min: -50, max: 50 }), F('len', 'Measured', { tmpl: false, ro: true, dec: 3, get: d => Math.hypot(d.x2 - d.x1, d.y2 - d.y1) })]
+  dim: [F('off', 'Offset', { min: -50, max: 50 }), F('len', 'Measured', { tmpl: false, ro: true, dec: 3, get: d => { const q = dimChain(d); return q ? Math.hypot(q.pts.at(-1)[0] - q.pts[0][0], q.pts.at(-1)[1] - q.pts[0][1]) : 0; } })],
+  rail: [F('h', 'Height', { max: 3 }), F('len', 'Length', { tmpl: false, ro: true, get: d => Math.hypot(d.x2 - d.x1, d.y2 - d.y1) })],
+  beam: [F('w', 'Width', { max: 3 }), F('h', 'Depth', { max: 3 }), F('top', 'Top height', { min: -5, max: 30 }), F('len', 'Length', { tmpl: false, ro: true, get: d => Math.hypot(d.x2 - d.x1, d.y2 - d.y1) })],
+  label: [FT('text', 'Text', { tmpl: false, ml: 80 }), F('size', 'Size', { unit: 'pt', dec: 0, step: 1, min: 6, max: 40 })],
+  mill: [FS('type', 'Unit', { base: 'Base cabinet', tall: 'Tall cabinet', upper: 'Wall cabinet' }, { set: (o, v) => { const c = FURN[v]; o.type = v; o.w = c.w; o.d = c.d; o.h = c.h; o.doors = c.doors; o.plinth = c.plinth; o.elev = c.elev || 0; } }),
+    F('w', 'Width'), F('d', 'Depth'), F('h', 'Height'), F('doors', 'Doors', { unit: '', dec: 0, step: 1, min: 0, max: 8 }), F('plinth', 'Plinth', { min: 0, max: .5 }), F('elev', 'Above floor', { min: 0, max: 10 })],
+  section: [FT('name', 'Name', { tmpl: false }), F('depth', 'View depth', { min: 1, max: 200, dec: 1, step: 1 }), F('len', 'Length', { tmpl: false, ro: true, get: d => Math.hypot(d.x2 - d.x1, d.y2 - d.y1) })]
 };
 const fget = (f, o) => f.get ? f.get(o) : o[f.key];
 function fset(f, o, v) { if (f.set) f.set(o, v); else o[f.key] = v; }
 function fieldHTML(f, o, pre) {
   const v = fget(f, o), id = pre + f.key;
   if (f.type === 'select') return `<label class="fld" for="${id}"><span>${f.label}</span><span class="fin"><select id="${id}" data-k="${f.key}">${Object.entries(f.choices).map(([k, l]) => `<option value="${k}"${String(v) === k ? ' selected' : ''}>${l}</option>`).join('')}</select></span></label>`;
-  if (f.type === 'text') return `<label class="fld" for="${id}"><span>${f.label}</span><span class="fin txt"><input id="${id}" data-k="${f.key}" type="text" value="${esc(v ?? '')}" maxlength="40"></span></label>`;
+  if (f.type === 'text') return `<label class="fld" for="${id}"><span>${f.label}</span><span class="fin txt"><input id="${id}" data-k="${f.key}" type="text" value="${esc(v ?? '')}" maxlength="${f.ml || 40}"></span></label>`;
   return `<label class="fld" for="${id}"><span>${f.label}</span><span class="fin"><input id="${id}" data-k="${f.key}" type="text" inputmode="decimal" value="${v == null ? '' : fmt(v, f.dec)}"${f.ro ? ' readonly' : ''}>${f.unit ? `<i>${f.unit}</i>` : ''}</span></label>`;
 }
 function context() {
   const o = selObj();
   if (o) { const kind = sel.kind === 'opening' ? o.type : sel.kind; return { kind, obj: o, isSel: true, fields: FIELDS[kind] }; }
-  if (tool !== 'select') return { kind: tool, obj: defaults[tool], isSel: false, fields: FIELDS[tool].filter(f => f.tmpl) };
+  if (tool !== 'select') return { kind: tool, obj: defaults[tool] || {}, isSel: false, fields: (FIELDS[tool] || []).filter(f => f.tmpl) };
   return null;
 }
 function bindFields(root, ctxInfo) {
@@ -606,20 +713,26 @@ function bindFields(root, ctxInfo) {
 }
 
 /* ================= chrome: toolbox, info box, quick options, tabs ================= */
-const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'slab', 'roof', 'stair', 'door', 'window', 'furn']], ['Document', ['zone', 'dim']]];
-const SHORT = { select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object' };
+const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'rail', 'door', 'window', 'furn', 'mill']], ['Document', ['zone', 'dim', 'label', 'section', 'measure', 'pin']]];
+const SHORT = { select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object', section: 'Section', beam: 'Beam', rail: 'Railing', mill: 'Millwork', label: 'Text', measure: 'Measure', pin: 'Comment' };
 $('#toolbox').innerHTML = TOOLGROUPS.map(([g, ts]) => `<h6>${g}</h6>` + ts.map(t => `<button class="tool" data-tool="${t}" aria-pressed="false" aria-label="${NAMES[t]} tool">${icon(t)}${SHORT[t]}</button>`).join('')).join('');
 $('#toolbox').onclick = e => { const b = e.target.closest('.tool'); if (b) setTool(b.dataset.tool); };
 const HINTS = {
   select: 'Tap an element to select it. Drag a selected element to move it. Drag empty space to pan.',
   wall: '', column: 'Tap to place a column.', slab: 'Drag a rectangle, or tap to cover the whole story.',
   roof: 'Drag a rectangle, or tap to roof the whole story.', stair: 'Drag in the walking direction, or tap to place.',
-  door: 'Tap a wall to place a door.', window: 'Tap a wall to place a window.', furn: 'Tap to place. Near a wall it turns its back to the wall.', zone: 'Tap inside a room, or drag a rectangle.', dim: 'Drag between two points.'
+  door: 'Tap a wall to place a door.', window: 'Tap a wall to place a window.', furn: 'Tap to place. Near a wall it turns its back to the wall.', zone: 'Tap inside a room, or drag a rectangle.', dim: 'Tap a wall to dimension its whole run (it follows the wall), or drag between two points.',
+  beam: 'Drag along the beam. Plans show it dashed, as overhead.', rail: 'Drag along the edge you want to guard.',
+  mill: 'Tap near a wall: the cabinet turns its back to it. Set doors, plinth and height above floor here.',
+  label: 'Tap to place text, or drag from the point you are pointing at to where the text should sit.',
+  measure: 'Drag to measure. Tap inside a room for its area and perimeter. Nothing is saved.',
+  pin: 'Tap where you want to leave a comment. Comments live in a cloud project.',
+  section: 'Drag a cut line across the building. Arrows show the way it looks; it cuts every story.'
 };
 const WALL_HINT = { single: 'Drag to draw one wall.', chain: 'Tap point after point. Tap the first point to close.', rect: 'Drag a rectangle of four walls.' };
 function setTool(t) {
   if (chain && t !== 'wall') finishChain(false);
-  tool = t; if (t !== 'select') sel = null;
+  tool = t; if (t !== 'select') sel = null; if (t !== 'measure') meas = null;
   document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
   renderInfo(); requestDraw();
 }
@@ -633,7 +746,7 @@ function renderInfo() {
   const title = NAMES[c.kind], sub = c.isSel ? '1 selected' : 'Default settings';
   let h = `<div class="ibk">${icon(c.kind)}<div><b>${title}</b><small>${sub}</small></div></div><div class="ibsep"></div>`;
   if (!c.isSel && c.kind === 'wall') h += `<div class="fld"><span>Geometry</span><div class="segm" id="method">${['single', 'chain', 'rect'].map(m => `<button data-m="${m}" aria-pressed="${defaults.wall.method === m}">${{ single: 'Single', chain: 'Chain', rect: 'Rectangle' }[m]}</button>`).join('')}</div></div>`;
-  h += c.fields.filter(f => f.info).map(f => fieldHTML(f, c.obj, 'ib_')).join('');
+  h += c.fields.filter(f => f.info && (!f.when || f.when(c.obj))).map(f => fieldHTML(f, c.obj, 'ib_')).join('');
   if (c.isSel) h += `<button class="gear" id="ibGear">${icon('gear')}Settings</button>`;
   else if (HINTS[c.kind] || c.kind === 'wall') h += `<div class="ibhint">${c.kind === 'wall' ? WALL_HINT[defaults.wall.method] : HINTS[c.kind]}</div>`;
   box.innerHTML = h;
@@ -648,7 +761,8 @@ function renderChrome() {
   $('#stDown').disabled = !storyBelow(curStory); $('#stUp').disabled = !storyAbove(curStory);
   $('#qScale').textContent = '1:' + opts.scale;
   document.querySelectorAll('.qtog').forEach(b => b.setAttribute('aria-pressed', String(!!opts[b.dataset.opt])));
-  $('#qAll3d').hidden = viewMode === 'plan';
+  $('#qAll3d').hidden = viewMode === 'plan' || viewMode === 'section';
+  const nc = runChecks().length, qc = $('#qChecks'); qc.textContent = nc ? `Checks · ${nc}` : 'Checks ✓'; qc.style.color = nc ? 'var(--danger)' : ''; qc.style.borderColor = nc ? 'var(--danger)' : '';
 }
 function goStory(id) {
   if (!storyOf(id)) return; if (chain) finishChain(false);
@@ -663,9 +777,10 @@ $('#quick').addEventListener('click', e => { const b = e.target.closest('.qtog')
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => setView(b.dataset.view));
 function setView(v) {
   viewMode = v; document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === v)));
-  $('#planPane').hidden = v === '3d'; $('#threePane').hidden = v === 'plan';
-  $('#toolbox').hidden = v === '3d'; $('#infobox').hidden = v === '3d';
-  if (v !== 'plan') init3(); renderChrome(); fitted = false; requestAnimationFrame(resizeAll);
+  $('#planPane').hidden = v === '3d' || v === 'section'; $('#threePane').hidden = v === 'plan' || v === 'section'; $('#secPane').hidden = v !== 'section';
+  $('#toolbox').hidden = v === '3d' || v === 'section'; $('#infobox').hidden = v === '3d' || v === 'section';
+  if (v === 'section') secFitted = false;
+  if (v === '3d' || v === 'split') init3(); renderChrome(); fitted = false; requestAnimationFrame(resizeAll);
 }
 
 /* ================= navigator ================= */
@@ -693,10 +808,15 @@ function renderNav() {
     total += sub; h += `<tr class="sub"><td></td><td>${esc(s.name)}</td><td>${fmt(sub)} m²</td></tr>`;
   }
   h += `<tr class="sub"><td></td><td>Total</td><td>${fmt(total)} m²</td></tr></tbody></table>`;
+  const sd = scheduleData();
+  h += `<h4>Door &amp; window schedule</h4><table class="ztab"><tbody>${sd.open.rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])} · ${esc(r[5])}</td><td>${r[2]} × ${r[3]}${r[1] === 'Window' ? ' / ' + r[4] : ''}</td></tr>`).join('') || '<tr><td></td><td>No doors or windows yet</td><td></td></tr>'}</tbody></table>
+    <div class="nacts" style="margin-top:8px"><button class="btn" id="schCsv">Schedule as CSV</button><button class="btn" id="schPdf">Schedule sheet</button></div>`;
   const c = $('#navc'); c.innerHTML = h;
   c.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { goStory(b.dataset.st); });
   c.querySelectorAll('[data-z]').forEach(r => r.onclick = () => { const z = model.zones.find(x => x.id === r.dataset.z); if (!z) return; goStory(z.st); setTool('select'); sel = { kind: 'zone', id: z.id }; renderInfo(); requestDraw(); openNav(false); setView(viewMode === '3d' ? 'plan' : viewMode); });
   $('#nav3d').onclick = () => { openNav(false); setView('3d'); };
+  $('#schCsv').onclick = () => saveFile(`${slug(model.name)}-schedule.csv`, new Blob([scheduleCSV()], { type: 'text/csv' }));
+  $('#schPdf').onclick = () => { openNav(false); openExport('schedule'); };
   $('#pjName').onchange = e => { const v = e.target.value.trim(); if (v) { pushUndo(); model.name = v; changed(); } };
   $('#stName').onchange = e => { const v = e.target.value.trim(); if (v) { pushUndo(); st.name = v; changed(); } };
   const numIn = (id, fn) => $(id).onchange = e => { const v = parseFloat(e.target.value.replace(',', '.')); if (!isFinite(v)) { renderNav(); return; } pushUndo(); fn(v); changed(); };
@@ -726,6 +846,7 @@ $('#mImport').onclick = () => {
   openDialog('Import project', 'copy', `<p class="intro">Paste a project you copied from Pocket BIM.</p><textarea id="impTxt" placeholder='{"name":…,"stories":[…]}'></textarea>`,
     [['Import', true, () => { try { const m = migrate(JSON.parse($('#impTxt').value)); if (!m) throw 0; closeDialog(); replaceModel(m, 'Project imported'); } catch (e) { toast('That text is not a Pocket BIM project'); } }]]);
 };
+$('#mExport').onclick = () => { $('#menu').hidden = true; openExport(); };
 function openDialog(title, ic, body, actions = []) {
   const d = $('#dlg');
   d.innerHTML = `<div class="dlgh">${icon(ic)}<b>${title}</b><button class="ib" id="dlgX" aria-label="Close">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'}</button></div><div class="dlgc">${body}${actions.length ? `<div class="nacts" style="padding:0">${actions.map((a, i) => `<button class="btn${a[1] === true ? ' pri' : a[1] === 'danger' ? ' danger' : ''}" data-a="${i}">${a[0]}</button>`).join('')}</div>` : ''}</div>`;
@@ -736,10 +857,10 @@ function closeDialog() { $('#dlgBg').hidden = true; }
 $('#dlgBg').addEventListener('pointerdown', e => { if (e.target.id === 'dlgBg') closeDialog(); });
 function openSettings() {
   const c = context(); if (!c || !c.isSel) return;
-  const o = c.obj, groups = { Geometry: c.fields.filter(f => f.type === 'num' || f.type === 'select'), Name: c.fields.filter(f => f.type === 'text') };
+  const vis = c.fields.filter(f => !f.when || f.when(c.obj)), o = c.obj, groups = { Geometry: vis.filter(f => f.type === 'num' || f.type === 'select'), Name: vis.filter(f => f.type === 'text') };
   let body = '';
-  for (const [g, fs] of Object.entries(groups)) if (fs.length) body += `<h5>${g === 'Name' ? 'Zone stamp' : 'Geometry and positioning'}</h5><div class="dgrid">${fs.map(f => fieldHTML(f, o, 'dl_')).join('')}</div>`;
-  if (sel.kind !== 'opening') body += `<h5>Home story</h5><div class="dgrid"><label class="fld" for="dlSt"><span>Story</span><span class="fin"><select id="dlSt">${stories().map(s => `<option value="${s.id}"${s.id === o.st ? ' selected' : ''}>${esc(storyLabel(s))}</option>`).join('')}</select></span></label></div>`;
+  for (const [g, fs] of Object.entries(groups)) if (fs.length) body += `<h5>${g === 'Name' ? (c.kind === 'zone' ? 'Zone stamp' : 'Text') : 'Geometry and positioning'}</h5><div class="dgrid">${fs.map(f => fieldHTML(f, o, 'dl_')).join('')}</div>`;
+  if (sel.kind !== 'opening' && sel.kind !== 'section') body += `<h5>Home story</h5><div class="dgrid"><label class="fld" for="dlSt"><span>Story</span><span class="fin"><select id="dlSt">${stories().map(s => `<option value="${s.id}"${s.id === o.st ? ' selected' : ''}>${esc(storyLabel(s))}</option>`).join('')}</select></span></label></div>`;
   openDialog(`${NAMES[c.kind]} Selection Settings`, c.kind, body, [['Done', true, closeDialog], ['Delete', 'danger', () => { closeDialog(); doPet('del'); }]]);
   bindFields($('#dlg'), { ...c, fields: c.fields });
   const sSel = $('#dlSt'); if (sSel) sSel.onchange = () => { pushUndo(); o.st = sSel.value; closeDialog(); goStory(o.st); sel = { kind: c.kind === 'door' || c.kind === 'window' ? 'opening' : c.kind, id: o.id }; changed(); };
@@ -754,9 +875,12 @@ function petActions() {
   const o = selObj(); if (!o) return [];
   const a = [];
   if (sel.kind === 'opening') { a.push(['flip', 'Flip']); if (o.type === 'door') a.push(['hinge', 'Hinge']); }
-  else if (sel.kind !== 'dim') a.push(['rot', 'Rotate']);
-  a.push(['copy', 'Copy']);
-  if (sel.kind !== 'opening' && storyAbove(curStory)) a.push(['up', 'To above']);
+  else if (sel.kind === 'section') a.push(['open', 'Open'], ['flip', 'Flip']);
+  else if (sel.kind === 'zone') a.push(['elev', 'Elevations']);
+  else if (!LINEK.has(sel.kind)) a.push(['rot', 'Rotate']);
+  const assoc = sel.kind === 'dim' && o.wid;
+  if (!assoc) a.push(['copy', 'Copy']);
+  if (sel.kind !== 'opening' && sel.kind !== 'section' && !assoc && storyAbove(curStory)) a.push(['up', 'To above']);
   if (sel.kind === 'wall') a.push(['dim', 'Dimension']);
   a.push(['gear', 'Settings'], ['del', 'Delete']);
   return a;
@@ -781,7 +905,8 @@ function selBBox() {
   else if (k === 'opening') { const w = wallById(o.wid), g = wgeo(w); pts = [[w.x1 + g.ux * o.pos, w.y1 + g.uy * o.pos]]; }
   else if (k === 'column') pts = [[o.x - o.w / 2, o.y - o.d / 2], [o.x + o.w / 2, o.y + o.d / 2]];
   else if (k === 'furn') pts = furnCorners(o);
-  else if (k === 'dim') pts = dimPts(o);
+  else if (k === 'dim') pts = dimLine(o) || [[o.x1, o.y1]];
+  else if (LINEK.has(k)) pts = [[o.x1, o.y1], [o.x2, o.y2]];
   else pts = rectCorners(o);
   const s = pts.map(([x, y]) => toS(x, y)), xs = s.map(p => p[0]), ys = s.map(p => p[1]);
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
@@ -790,6 +915,7 @@ function cloneTo(kind, o, st, dx, dy) {
   const c = JSON.parse(JSON.stringify(o)); c.id = uid(); c.st = st;
   if ('x1' in c) { c.x1 = r3(c.x1 + dx); c.y1 = r3(c.y1 + dy); c.x2 = r3(c.x2 + dx); c.y2 = r3(c.y2 + dy); } else { c.x = r3(c.x + dx); c.y = r3(c.y + dy); }
   if (kind === 'zone') c.num = nextZoneNum(st);
+  if (kind === 'section') { delete c.st; c.name = nextSecName(); }
   model[LISTS[kind]].push(c);
   if (kind === 'wall') for (const op2 of model.openings.filter(x => x.wid === o.id)) model.openings.push({ ...op2, id: uid(), wid: c.id });
   return c;
@@ -797,6 +923,8 @@ function cloneTo(kind, o, st, dx, dy) {
 function doPet(k) {
   const o = selObj(); if (!o) return; const kind = sel.kind;
   if (k === 'gear') { openSettings(); return; }
+  if (k === 'open') { curSec = o.id; setView('section'); return; }
+  if (k === 'elev') { curSec = `ie:${o.id}:n`; setView('section'); return; }
   pushUndo();
   switch (k) {
     case 'del':
@@ -815,28 +943,35 @@ function doPet(k) {
       else { const c = cloneTo(kind, o, o.st, .5, .5); sel = { kind, id: c.id }; }
       toast('Copy placed 0.5 m away. Drag it into place'); break;
     case 'up': { const a = storyAbove(o.st); const c = cloneTo(kind, o, a.id, 0, 0); toast(`Copied to ${a.name}`); goStory(a.id); sel = { kind, id: c.id }; break; }
-    case 'dim': mk.dim(o.st, o.x1, o.y1, o.x2, o.y2, { off: -(o.t / 2 + .6) }); toast('Dimension added'); break;
+    case 'dim': { const b = storyBounds(o.st), g = wgeo(o), mx = (o.x1 + o.x2) / 2, my = (o.y1 + o.y2) / 2, side = b ? -(Math.sign((b.x + b.w / 2 - mx) * g.nx + (b.y + b.h / 2 - my) * g.ny) || 1) : 1;
+      model.dims.push({ id: uid(), st: o.st, wid: o.id, off: r3(side * (o.t / 2 + .7)), x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2 }); toast('Dimension chain added. It follows the wall'); break; }
   }
   clampOpenings(); changed();
 }
 
 /* ================= plan canvas ================= */
-const cv = $('#plan'), ctx = cv.getContext('2d');
+const cv = $('#plan'); let ctx = cv.getContext('2d');
+const scv = $('#sec'), sctx = scv.getContext('2d');
 const view = { x: 40, y: 40, s: 40 };
-let colors = {}, pats = {};
-function readColors() {
-  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
-  colors = { paper: g('--paper'), ink: g('--ink'), muted: g('--muted'), hatch: g('--hatch'), trace: g('--trace'), thin: g('--thin'), grid: g('--grid'), grid2: g('--grid2'), accent: g('--accent'), soft: g('--accent-soft'), glass: g('--glass'), mono: g('--f-mono'), cond: g('--f-cond') };
-  const mkp = fn => { const c = document.createElement('canvas'); c.width = c.height = 8; const q = c.getContext('2d'); q.fillStyle = colors.paper; q.fillRect(0, 0, 8, 8); q.strokeStyle = colors.hatch; q.fillStyle = colors.hatch; q.lineWidth = 1; fn(q); return ctx.createPattern(c, 'repeat'); };
-  pats = {
+let colors = {}, pats = {}, secPats = {};
+// Light drawing palette used for exported sheets, whatever theme the screen is in
+const LIGHT = { danger: '#c62828', paper: '#ffffff', ink: '#1d2127', muted: '#667080', hatch: '#4b5361', trace: '#b7c3d3', thin: '#8d97a5', grid: 'rgba(0,0,0,0)', grid2: 'rgba(0,0,0,0)', accent: '#1769d1', soft: 'rgba(23,105,209,.12)', glass: '#3d8fd1' };
+function makePats(c, col) {
+  const mkp = fn => { const cc = document.createElement('canvas'); cc.width = cc.height = 8; const q = cc.getContext('2d'); q.fillStyle = col.paper; q.fillRect(0, 0, 8, 8); q.strokeStyle = col.hatch; q.fillStyle = col.hatch; q.lineWidth = 1; fn(q); return c.createPattern(cc, 'repeat'); };
+  return {
     brick: mkp(q => { q.beginPath(); q.moveTo(0, 8); q.lineTo(8, 0); q.moveTo(-1, 1); q.lineTo(1, -1); q.moveTo(7, 9); q.lineTo(9, 7); q.stroke(); }),
     block: mkp(q => { q.globalAlpha = .8; q.beginPath(); q.moveTo(0, 8); q.lineTo(8, 0); q.moveTo(0, 0); q.lineTo(8, 8); q.stroke(); }),
     concrete: mkp(q => { q.globalAlpha = .22; q.fillRect(0, 0, 8, 8); q.globalAlpha = 1; q.fillRect(1, 1, 1, 1); q.fillRect(5, 4, 1, 1); q.fillRect(2, 6, 1, 1); }),
     gypsum: mkp(() => { })
   };
 }
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  colors = { danger: g('--danger'), paper: g('--paper'), ink: g('--ink'), muted: g('--muted'), hatch: g('--hatch'), trace: g('--trace'), thin: g('--thin'), grid: g('--grid'), grid2: g('--grid2'), accent: g('--accent'), soft: g('--accent-soft'), glass: g('--glass'), mono: g('--f-mono'), cond: g('--f-cond'), sans: g('--f-sans') };
+  pats = makePats(ctx, colors); secPats = makePats(sctx, colors);
+}
 readColors();
-const themeChange = () => { readColors(); requestDraw(); dirty3 = true; request3(); };
+const themeChange = () => { readColors(); requestDraw(); requestSec(); dirty3 = true; request3(); };
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChange);
 new MutationObserver(themeChange).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
@@ -878,16 +1013,17 @@ function colPath(c) {
   else poly([[c.x - c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y + c.d / 2], [c.x - c.w / 2, c.y + c.d / 2]]);
 }
 
+const EXP = { on: false, W: 0, H: 0 };
 function draw() {
   drawReq = false;
-  const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+  const W = EXP.on ? EXP.W : cv.clientWidth, H = EXP.on ? EXP.H : cv.clientHeight; if (!W || !H) return;
   const s = view.s, st = curStory, k = ann(), lw = Math.max(.8, Math.min(1.8, s / 35));
   const E = kind => model[LISTS[kind]].filter(o => o.st === st);
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, W, H);
   // grid
   const minor = s > 70 ? .1 : s > 18 ? .5 : 1, tl = toW(0, 0), br = toW(W, H);
   ctx.lineWidth = 1;
-  for (const [step, col] of [[minor, colors.grid], [minor === 1 ? 5 : 1, colors.grid2]]) {
+  if (!EXP.on) for (const [step, col] of [[minor, colors.grid], [minor === 1 ? 5 : 1, colors.grid2]]) {
     if (step * s < 6) continue; ctx.strokeStyle = col; ctx.beginPath();
     for (let x = Math.floor(tl.x / step) * step; x <= br.x; x += step) { const sx = Math.round(x * s + view.x) + .5; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
     for (let y = Math.floor(tl.y / step) * step; y <= br.y; y += step) { const sy = Math.round(y * s + view.y) + .5; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
@@ -901,19 +1037,25 @@ function draw() {
     for (const sr of model.stairs) if (sr.st === below.id) drawStair(sr, true);
   }
   for (const sl of E('slab')) { rectPath(sl); ctx.strokeStyle = colors.thin; ctx.lineWidth = .8; ctx.stroke(); }
-  for (const z of E('zone')) { rectPath(z); ctx.globalAlpha = .17; ctx.fillStyle = ZONE_COLORS[z.c % ZONE_COLORS.length]; ctx.fill(); ctx.globalAlpha = 1; }
+  const Ly = model.layers || LAYER_DEF;
+  if (Ly.zones) for (const z of E('zone')) { rectPath(z); ctx.globalAlpha = .17; ctx.fillStyle = ZONE_COLORS[z.c % ZONE_COLORS.length]; ctx.fill(); ctx.globalAlpha = 1; }
   for (const sr of E('stair')) drawStair(sr, false);
-  // walls: outline pass, then fills hide inner outline at junctions
-  const ws = E('wall');
+  // walls: outline pass, then fills hide inner outlines at junctions; weaker walls fill first so the stronger wall's fill wins where they overlap
+  const ws = E('wall').sort((a, b) => wallPriority(a) - wallPriority(b)), quads = new Map(ws.map(w => [w, wallQuad(w)]));
   ctx.lineJoin = 'miter'; ctx.strokeStyle = colors.ink; ctx.lineWidth = lw * 2;
-  for (const w of ws) { poly(wallQuad(w)); ctx.stroke(); }
-  for (const w of ws) { poly(wallQuad(w)); ctx.fillStyle = pats[w.mat] || pats.brick; ctx.fill(); }
+  for (const w of ws) { poly(quads.get(w)); ctx.stroke(); }
+  for (const w of ws) { poly(quads.get(w)); ctx.fillStyle = pats[w.mat] || pats.brick; ctx.fill(); }
   for (const o of model.openings) { const w = wallById(o.wid); if (w && w.st === st) drawOpening(o, w, lw); }
-  for (const c of E('column')) { colPath(c); ctx.fillStyle = pats.concrete; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = colors.ink; ctx.stroke(); }
-  for (const f of E('furn')) drawFurn(f, colors.ink);
+  if (Ly.struct) for (const c of E('column')) { colPath(c); ctx.fillStyle = pats.concrete; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = colors.ink; ctx.stroke(); }
+  for (const f of E('furn')) if (isMill(f) ? Ly.mill : Ly.furn) drawFurn(f, colors.ink);
+  for (const rl of E('rail')) drawRail(rl, colors.ink);
+  if (Ly.struct) for (const b of E('beam')) drawBeam(b, colors.ink);
   for (const r of E('roof')) drawRoof(r, k);
-  for (const z of E('zone')) drawStamp(z, k);
-  for (const d of E('dim')) drawDim(d, colors.ink, k);
+  if (Ly.zones) { const bad = checkMap(); for (const z of E('zone')) drawStamp(z, k, bad.has(z.id)); }
+  if (Ly.dims) for (const d of E('dim')) drawDim(d, colors.ink, k);
+  if (Ly.annot) { drawTags(k); for (const l of E('label')) drawLabel(l, colors.ink); for (const sc of model.sections) drawSecMark(sc, colors.ink, k); drawPins(k); }
+  if (EXP.on) return;
+  if (meas) drawMeasure(meas);
   drawSelection(lw, k);
   drawPreview(lw, k);
   // scale bar
@@ -989,6 +1131,14 @@ function drawFurn(f, color) {
     case 'bath': R(x0, y0, W, D, .05); R(x0 + .07, y0 + .07, W - .14, D - .14, .25); C(x0 + .2, 0, .03, false); break;
     case 'shower': R(x0, y0, W, D); L(x0, y0, x0 + W, y0 + D); L(x0 + W, y0, x0, y0 + D); C(0, 0, .04); break;
     case 'plant': { const r = Math.min(W, D) / 2; for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; C(Math.cos(a) * r * .5, Math.sin(a) * r * .5, r * .48); } C(0, 0, r * .3); break; }
+    case 'base': case 'tall': case 'upper': {
+      const n = Math.max(1, f.doors || 1);
+      if (f.type === 'upper') { ctx.setLineDash([.08, .05]); R(x0, y0, W, D); ctx.setLineDash([]); L(x0, y0, x0 + W, y0 + D); L(x0 + W, y0, x0, y0 + D); break; }
+      R(x0, y0, W, D); if (f.type === 'tall') { L(x0, y0, x0 + W, y0 + D); L(x0 + W, y0, x0, y0 + D); }
+      else L(x0, y0 + D - .03, x0 + W, y0 + D - .03);
+      for (let i = 1; i < n; i++) L(x0 + W * i / n, y0 + D - .05, x0 + W * i / n, y0 + D);
+      break;
+    }
     default: R(x0, y0, W, D);
   }
   ctx.restore();
@@ -1017,7 +1167,7 @@ function drawRoof(r, k) {
   ctx.font = `${Math.round(10 * k)}px ${colors.mono}`; ctx.fillStyle = colors.muted; ctx.textAlign = 'right';
   ctx.fillText(r.shape === 'gable' ? `Roof ${fmt(r.pitch, 0)}°` : 'Flat roof', lx - 4, ly - 5);
 }
-function drawStamp(z, k) {
+function drawStamp(z, k, warn) {
   if (Math.abs(z.w * view.s) < 46 || Math.abs(z.h * view.s) < 34) return;
   const [cx, cy] = toS(z.x + z.w / 2, z.y + z.h / 2);
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
@@ -1026,22 +1176,146 @@ function drawStamp(z, k) {
   ctx.fillStyle = colors.muted; ctx.font = `${Math.round(9.5 * k)}px ${colors.mono}`; ctx.fillText(z.num || '', cx, cy - 10 * k);
   ctx.fillStyle = colors.ink; ctx.font = `600 ${Math.round(13 * k)}px ${colors.cond}`; ctx.fillText(z.name, cx, cy + 4 * k);
   ctx.font = `${Math.round(10.5 * k)}px ${colors.mono}`; ctx.fillText(fmt(z.w * z.h) + ' m²', cx, cy + 17 * k);
+  if (z.floor && FLOORS[z.floor]) { ctx.fillStyle = colors.muted; ctx.font = `${Math.round(9 * k)}px ${colors.cond}`; ctx.fillText('Floor: ' + FLOORS[z.floor], cx, cy + 29 * k); }
+  if (warn) { const x = cx + nw / 2 + 9 * k, y = cy - 15 * k, a = 7 * k; ctx.fillStyle = colors.danger; ctx.beginPath(); ctx.moveTo(x, y - a); ctx.lineTo(x + a, y + a * .7); ctx.lineTo(x - a, y + a * .7); ctx.closePath(); ctx.fill(); ctx.fillStyle = colors.paper; ctx.font = `700 ${Math.round(9 * k)}px ${colors.mono}`; ctx.fillText('!', x, y + a * .55); }
+}
+// Dimensions: a plain dimension measures two points; one with `wid` is a chain tied to a wall (ends + every opening edge) and follows it
+function dimChain(d) {
+  if (!d.wid) return { pts: [[d.x1, d.y1], [d.x2, d.y2]], off: d.off, total: false };
+  const w = wallById(d.wid); if (!w) return null;
+  const g = wgeo(w), [e1, e2] = wallEnds(w), sg = Math.sign(d.off) || 1, ts = [-e1];
+  for (const o of model.openings.filter(o => o.wid === w.id).sort((a, b) => a.pos - b.pos)) ts.push(o.pos - o.w / 2, o.pos + o.w / 2);
+  ts.push(g.L + e2);
+  const f = sg * w.t / 2;
+  return { pts: ts.map(t => [w.x1 + g.ux * t + g.nx * f, w.y1 + g.uy * t + g.ny * f]), off: d.off - f, total: ts.length > 2 };
+}
+function dimLine(d) {
+  const c = dimChain(d); if (!c) return null; const a = c.pts[0], b = c.pts.at(-1), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1e-6, nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
+  return [[a[0] + nx * c.off, a[1] + ny * c.off], [b[0] + nx * c.off, b[1] + ny * c.off]];
 }
 function drawDim(d, color, k) {
-  const [p, q] = dimPts(d), L = Math.hypot(d.x2 - d.x1, d.y2 - d.y1); if (L < 1e-3) return;
-  const sg = Math.sign(d.off) || 1, nx = -(d.y2 - d.y1) / L * sg, ny = (d.x2 - d.x1) / L * sg, ux = (d.x2 - d.x1) / L, uy = (d.y2 - d.y1) / L;
-  const gap = 4 / view.s, ext = 4 / view.s;
-  ctx.strokeStyle = color; ctx.lineWidth = .8;
-  seg([d.x1 + nx * gap, d.y1 + ny * gap], [p[0] + nx * ext, p[1] + ny * ext]); seg([d.x2 + nx * gap, d.y2 + ny * gap], [q[0] + nx * ext, q[1] + ny * ext]);
-  seg([p[0] - ux * ext, p[1] - uy * ext], [q[0] + ux * ext, q[1] + uy * ext]);
-  ctx.lineWidth = 1.6; const t = 4 / view.s;
-  for (const c of [p, q]) seg([c[0] - (ux + nx) * t, c[1] - (uy + ny) * t], [c[0] + (ux + nx) * t, c[1] + (uy + ny) * t]);
-  const [sp, sq] = [toS(p[0], p[1]), toS(q[0], q[1])], sl = Math.hypot(sq[0] - sp[0], sq[1] - sp[1]);
-  if (sl > 26) label(fmt(L), p[0], p[1], q[0], q[1], 9 * sg, Math.round(10.5 * k), color, false);
+  const c = dimChain(d); if (!c) return;
+  const pts = c.pts, a = pts[0], b = pts.at(-1), L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1e-3) return;
+  const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, nx = -uy, ny = ux, sg = Math.sign(c.off) || 1, gap = 4 / view.s, ext = 4 / view.s, t = 4 / view.s;
+  ctx.strokeStyle = color;
+  [c.off].concat(c.total ? [c.off + sg * 18 / view.s] : []).forEach((off, li) => {
+    const B = li ? [a, b] : pts, Q = B.map(p => [p[0] + nx * off, p[1] + ny * off]);
+    ctx.lineWidth = .8;
+    for (let i = 0; i < B.length; i++) seg([B[i][0] + nx * sg * gap, B[i][1] + ny * sg * gap], [Q[i][0] + nx * sg * ext, Q[i][1] + ny * sg * ext]);
+    seg([Q[0][0] - ux * ext, Q[0][1] - uy * ext], [Q.at(-1)[0] + ux * ext, Q.at(-1)[1] + uy * ext]);
+    ctx.lineWidth = 1.6; for (const q of Q) seg([q[0] - (ux + nx * sg) * t, q[1] - (uy + ny * sg) * t], [q[0] + (ux + nx * sg) * t, q[1] + (uy + ny * sg) * t]);
+    for (let i = 0; i < Q.length - 1; i++) { const p = Q[i], q = Q[i + 1], len = Math.hypot(q[0] - p[0], q[1] - p[1]); if (len * view.s > 24) label(fmt(len), p[0], p[1], q[0], q[1], 9 * sg, Math.round(10.5 * k), color, false); }
+  });
+}
+// Line elements: rails (thin, with posts) and beams (overhead, dashed)
+function lineQuad(o, wd) {
+  const L = Math.hypot(o.x2 - o.x1, o.y2 - o.y1) || 1e-6, ux = (o.x2 - o.x1) / L, uy = (o.y2 - o.y1) / L, h = wd / 2;
+  return [[o.x1 - uy * h, o.y1 + ux * h], [o.x2 - uy * h, o.y2 + ux * h], [o.x2 + uy * h, o.y2 - ux * h], [o.x1 + uy * h, o.y1 - ux * h]];
+}
+function drawRail(o, color) {
+  const q = lineQuad(o, .05), L = Math.hypot(o.x2 - o.x1, o.y2 - o.y1); ctx.strokeStyle = color; ctx.lineWidth = .9;
+  seg(q[0], q[1]); seg(q[3], q[2]);
+  const n = Math.max(1, Math.round(L / 1.2)), r = Math.max(2, .03 * view.s); ctx.fillStyle = color;
+  for (let i = 0; i <= n; i++) { const [x, y] = toS(o.x1 + (o.x2 - o.x1) * i / n, o.y1 + (o.y2 - o.y1) * i / n); ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
+}
+function drawBeam(o, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = .9; ctx.setLineDash([6, 4]); poly(lineQuad(o, o.w)); ctx.stroke();
+  ctx.setLineDash([12, 3, 2, 3]); ctx.lineWidth = .6; seg([o.x1, o.y1], [o.x2, o.y2]); ctx.setLineDash([]);
+}
+// Text with an optional leader: (x1,y1) is the point it refers to, (x2,y2) where the text sits
+function labelFont(o) { return `500 ${Math.round((o.size || 10) * 1.2 * ann())}px ${colors.sans || colors.cond}`; }
+function labelBox(o) {
+  ctx.font = labelFont(o); const tw = ctx.measureText(o.text).width, fs = (o.size || 10) * 1.2 * ann(), [tx, ty] = toS(o.x2, o.y2);
+  const lead = Math.hypot(o.x2 - o.x1, o.y2 - o.y1) > .05, right = !lead || o.x2 >= o.x1, sh = lead ? 10 : 0, x0 = right ? tx + sh + 3 : tx - sh - 3 - tw;
+  return { x0, y0: ty - fs * .65, w: tw, h: fs * 1.3, tx, ty, sh: right ? sh : -sh, lead };
+}
+function drawLabel(o, color) {
+  const b = labelBox(o); ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = .9;
+  if (b.lead) {
+    const [ax, ay] = toS(o.x1, o.y1); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(b.tx, b.ty); ctx.lineTo(b.tx + b.sh, b.ty); ctx.stroke();
+    const an = Math.atan2(ay - b.ty, ax - b.tx); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax - 8 * Math.cos(an - .35), ay - 8 * Math.sin(an - .35)); ctx.lineTo(ax - 8 * Math.cos(an + .35), ay - 8 * Math.sin(an + .35)); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = .85; ctx.fillStyle = colors.paper; ctx.fillRect(b.x0 - 2, b.y0, b.w + 4, b.h); ctx.globalAlpha = 1;
+  ctx.fillStyle = color; ctx.font = labelFont(o); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(o.text, b.x0, b.ty + 1); ctx.restore();
+}
+function labelHit(o, p, tol) {
+  const b = labelBox(o), [sx, sy] = toS(p.x, p.y);
+  if (sx >= b.x0 - 4 && sx <= b.x0 + b.w + 4 && sy >= b.y0 - 4 && sy <= b.y0 + b.h + 4) return true;
+  return b.lead && segDistPts(p, [o.x1, o.y1], [o.x2, o.y2]).d < tol * .6;
+}
+function askLabel(a, b) {
+  openDialog('Text', 'label', `<p class="intro">Write the note. Material callouts work well with a leader: drag from the element to where the text should go.</p><textarea id="lblTxt" style="min-height:70px" maxlength="80" placeholder="e.g. 300 brick, render finish"></textarea>`,
+    [['Place', true, () => { const t = $('#lblTxt').value.trim().replace(/\s+/g, ' '); if (!t) { toast('Type some text first'); return; } closeDialog(); pushUndo(); const l = mk.line('label', curStory, a.x, a.y, b.x, b.y, { text: t, size: defaults.label.size }); setTool('select'); sel = { kind: 'label', id: l.id }; changed(); }]]);
+  setTimeout(() => { const t = $('#lblTxt'); if (t) t.focus(); }, 50);
+}
+function wallChainAt(p) {
+  let best = null; for (const w of model.walls) { if (w.st !== curStory) continue; const r = segDist(p, w); if (r.d < w.t / 2 + 20 / view.s && (!best || r.d < best.d)) best = { w, ...r }; }
+  if (!best) { toast('Tap a wall to dimension its run, or drag between two points'); return; }
+  const w = best.w, g = wgeo(w), side = ((p.x - w.x1) * g.nx + (p.y - w.y1) * g.ny) >= 0 ? 1 : -1;
+  pushUndo(); model.dims.push({ id: uid(), st: curStory, wid: w.id, off: r3(side * (w.t / 2 + .7)), x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }); changed(); toast('Dimension chain added. It follows the wall');
+}
+// Measure: a temporary distance, or a room's area
+function measureArea(p) { const r = magicRect(p); if (!r || r.w * r.h > 400) { toast('No closed room here. Drag to measure a distance'); return null; } return { rect: r }; }
+function drawMeasure(m) {
+  ctx.save(); ctx.strokeStyle = colors.accent; ctx.fillStyle = colors.accent;
+  if (m.rect) {
+    rectPath(m.rect); ctx.globalAlpha = .14; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]);
+    const [cx, cy] = toS(m.rect.x + m.rect.w / 2, m.rect.y + m.rect.h / 2), t = `${fmt(m.rect.w)} × ${fmt(m.rect.h)} m · A ${fmt(m.rect.w * m.rect.h)} m² · P ${fmt(2 * (m.rect.w + m.rect.h))} m`;
+    ctx.font = `600 12px ${colors.mono}`; const tw = ctx.measureText(t).width; ctx.fillStyle = colors.accent; ctx.fillRect(cx - tw / 2 - 6, cy - 11, tw + 12, 22); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, cx, cy);
+  } else {
+    const { a, b } = m, L = Math.hypot(b.x - a.x, b.y - a.y); ctx.lineWidth = 1.8; seg([a.x, a.y], [b.x, b.y]);
+    for (const q of [a, b]) { const [x, y] = toS(q.x, q.y); ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }
+    if (L > .01) { const t = `${fmt(L, 3)} m  ·  Δx ${fmt(Math.abs(b.x - a.x))}  Δy ${fmt(Math.abs(b.y - a.y))}`, [mx, my] = toS((a.x + b.x) / 2, (a.y + b.y) / 2);
+      ctx.font = `600 12px ${colors.mono}`; const tw = ctx.measureText(t).width; ctx.fillRect(mx - tw / 2 - 6, my - 30, tw + 12, 20); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, mx, my - 20); }
+  }
+  ctx.restore();
+}
+// Door and window tags: D/W + story index + running number, ordered top-to-bottom, left-to-right per story
+function openingIds() {
+  const out = new Map();
+  for (const s of stories()) for (const type of ['door', 'window']) {
+    const list = model.openings.filter(o => o.type === type && (wallById(o.wid) || {}).st === s.id).map(o => { const w = wallById(o.wid), g = wgeo(w); return { o, x: w.x1 + g.ux * o.pos, y: w.y1 + g.uy * o.pos }; })
+      .sort((p, q) => Math.abs(p.y - q.y) > .3 ? p.y - q.y : p.x - q.x);
+    list.forEach((e, i) => out.set(e.o.id, `${type === 'door' ? 'D' : 'W'}${storyIdx(s.id)}${String(i + 1).padStart(2, '0')}`));
+  }
+  return out;
+}
+function drawTags(k) {
+  if (view.s < 14) return; const ids = openingIds();
+  ctx.save(); ctx.font = `600 ${Math.round(8.5 * k)}px ${colors.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const o of model.openings) {
+    const w = wallById(o.wid); if (!w || w.st !== curStory) continue;
+    const g = wgeo(w), sd = o.type === 'door' ? -o.flip : 1, off = w.t / 2 + 13 / view.s * k, cx = w.x1 + g.ux * o.pos + g.nx * sd * off, cy = w.y1 + g.uy * o.pos + g.ny * sd * off;
+    const [x, y] = toS(cx, cy), t = ids.get(o.id) || '', tw = ctx.measureText(t).width + 8, th = 13 * k;
+    ctx.fillStyle = colors.paper; ctx.strokeStyle = colors.ink; ctx.lineWidth = .8;
+    if (o.type === 'door') { rr(x - tw / 2, y - th / 2, tw, th, th / 2); } else { ctx.beginPath(); ctx.rect(x - tw / 2, y - th / 2, tw, th); }
+    ctx.fill(); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.fillText(t, x, y + .5);
+  }
+  ctx.restore();
+}
+
+// Section marker: dash-dot cut line, heavy end ticks, arrows in the look direction, name bubbles past each end
+function drawSecMark(o, color, k) {
+  const [ax, ay] = toS(o.x1, o.y1), [bx, by] = toS(o.x2, o.y2), L = Math.hypot(bx - ax, by - ay); if (L < 4) return;
+  const ux = (bx - ax) / L, uy = (by - ay) / L, f = o.flip < 0 ? -1 : 1, dx = -uy * f, dy = ux * f;
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = .9; ctx.setLineDash([14, 3, 2, 3]);
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+  const t = Math.min(16 * k, L / 3); ctx.lineWidth = 2.6; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + ux * t, ay + uy * t); ctx.moveTo(bx, by); ctx.lineTo(bx - ux * t, by - uy * t); ctx.stroke();
+  const a = 10 * k, r = 8.5 * k;
+  ctx.font = `600 ${Math.round(11 * k)}px ${colors.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [px, py, sg] of [[ax, ay, 1], [bx, by, -1]]) {
+    const ix = ux * sg, iy = uy * sg; // pointing into the line
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + ix * a, py + iy * a); ctx.lineTo(px + ix * a * .5 + dx * a * 1.15, py + iy * a * .5 + dy * a * 1.15); ctx.closePath(); ctx.fill();
+    const cx = px - ix * (r + 4), cy = py - iy * (r + 4);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = colors.paper; ctx.fill(); ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.fillStyle = color; ctx.fillText(o.name || '', cx, cy + .5);
+  }
+  ctx.restore();
 }
 function handlesOf(kind, o) {
-  if (kind === 'wall') return [['1', o.x1, o.y1], ['2', o.x2, o.y2]];
-  if (kind === 'dim') return [['1', o.x1, o.y1], ['2', o.x2, o.y2]];
+  if (kind === 'dim' && o.wid) return [];
+  if (kind === 'wall' || LINEK.has(kind)) return [['1', o.x1, o.y1], ['2', o.x2, o.y2]];
   if (RECT.has(kind)) return rectCorners(o).map((c, i) => [['nw', 'ne', 'se', 'sw'][i], c[0], c[1]]);
   return [];
 }
@@ -1055,6 +1329,9 @@ function drawSelection(lw, k) {
   else if (kind === 'column') { colPath(o); ctx.fill(); ctx.stroke(); }
   else if (kind === 'furn') { drawFurn(o, colors.accent); poly(furnCorners(o)); ctx.strokeStyle = colors.accent; ctx.lineWidth = 2; ctx.fillStyle = colors.soft; ctx.fill(); ctx.stroke(); const [fx, fy] = furnXY(o, 0, o.d / 2); const [sx, sy] = toS(fx, fy); ctx.beginPath(); ctx.arc(sx, sy, 4, 0, 7); ctx.fillStyle = colors.accent; ctx.fill(); }
   else if (kind === 'dim') drawDim(o, colors.accent, k);
+  else if (kind === 'section') drawSecMark(o, colors.accent, k);
+  else if (kind === 'rail' || kind === 'beam') { poly(lineQuad(o, kind === 'beam' ? o.w : .08)); ctx.fill(); ctx.stroke(); }
+  else if (kind === 'label') drawLabel(o, colors.accent);
   else { rectPath(o); ctx.fill(); ctx.setLineDash(kind === 'roof' ? [7, 4] : []); ctx.stroke(); ctx.setLineDash([]); }
   for (const [, x, y] of handlesOf(kind, o)) drawHandle(x, y);
 }
@@ -1076,6 +1353,10 @@ function drawPreview(lw, k) {
   }
   if (op && op.type === 'line' && op.b) {
     if (op.target === 'wall') ghostWall(op.a.x, op.a.y, op.b.x, op.b.y);
+    else if (op.target === 'rail' || op.target === 'beam') { poly(lineQuad({ x1: op.a.x, y1: op.a.y, x2: op.b.x, y2: op.b.y }, op.target === 'beam' ? defaults.beam.w : .08)); ctx.fillStyle = colors.soft; ctx.fill(); ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.5; ctx.stroke(); }
+    else if (op.target === 'measure') drawMeasure({ a: op.a, b: op.b });
+    else if (op.target === 'label') { seg([op.a.x, op.a.y], [op.b.x, op.b.y]); }
+    else if (op.target === 'section') drawSecMark({ x1: op.a.x, y1: op.a.y, x2: op.b.x, y2: op.b.y, flip: 1, name: nextSecName() }, colors.accent, k);
     else drawDim({ x1: op.a.x, y1: op.a.y, x2: op.b.x, y2: op.b.y, off: defaults.dim.off }, colors.accent, k);
   }
   if (op && op.type === 'rect' && op.moved) {
@@ -1095,17 +1376,21 @@ function drawPreview(lw, k) {
 
 /* ================= hit testing & snapping ================= */
 function hit(p) {
-  const tol = 12 / view.s, st = curStory;
+  const tol = 12 / view.s, st = curStory, Ly = model.layers || LAYER_DEF;
+  if (Ly.annot) for (const l of model.labels) if (l.st === st && labelHit(l, p, tol)) return { kind: 'label', id: l.id };
   for (const o of model.openings) { const w = wallById(o.wid); if (!w || w.st !== st) continue; const { d, t } = segDist(p, w); if (d < w.t / 2 + tol && Math.abs(t - o.pos) < o.w / 2) return { kind: 'opening', id: o.id }; }
-  for (const c of model.columns) if (c.st === st && Math.abs(p.x - c.x) < c.w / 2 + tol / 2 && Math.abs(p.y - c.y) < c.d / 2 + tol / 2) return { kind: 'column', id: c.id };
-  for (let i = model.furniture.length - 1; i >= 0; i--) { const f = model.furniture[i]; if (f.st === st && inFurn(p, f, tol * .3)) return { kind: 'furn', id: f.id }; }
+  if (Ly.struct) for (const c of model.columns) if (c.st === st && Math.abs(p.x - c.x) < c.w / 2 + tol / 2 && Math.abs(p.y - c.y) < c.d / 2 + tol / 2) return { kind: 'column', id: c.id };
+  for (let i = model.furniture.length - 1; i >= 0; i--) { const f = model.furniture[i]; if (f.st === st && (isMill(f) ? Ly.mill : Ly.furn) && inFurn(p, f, tol * .3)) return { kind: 'furn', id: f.id }; }
+  for (const rl of model.rails) if (rl.st === st && segDistPts(p, [rl.x1, rl.y1], [rl.x2, rl.y2]).d < tol * .7) return { kind: 'rail', id: rl.id };
   let best = null, bd = Infinity;
   for (const w of model.walls) { if (w.st !== st) continue; const { d } = segDist(p, w); if (d < w.t / 2 + tol * .6 && d < bd) { bd = d; best = { kind: 'wall', id: w.id }; } }
   if (best) return best;
-  for (const d of model.dims) if (d.st === st) { const q = dimPts(d); if (segDistPts(p, q[0], q[1]).d < tol) return { kind: 'dim', id: d.id }; }
+  if (Ly.annot) for (const s of model.sections) if (segDistPts(p, [s.x1, s.y1], [s.x2, s.y2]).d < tol) return { kind: 'section', id: s.id };
+  if (Ly.dims) for (const d of model.dims) if (d.st === st) { const q = dimLine(d); if (q && segDistPts(p, q[0], q[1]).d < tol) return { kind: 'dim', id: d.id }; }
+  if (Ly.struct) for (const b of model.beams) if (b.st === st && segDistPts(p, [b.x1, b.y1], [b.x2, b.y2]).d < b.w / 2 + tol * .5) return { kind: 'beam', id: b.id };
   for (const s of model.stairs) if (s.st === st && inRect(p, s)) return { kind: 'stair', id: s.id };
   for (const r of model.roofs) if (r.st === st && nearRectEdge(p, r, tol)) return { kind: 'roof', id: r.id };
-  for (let i = model.zones.length - 1; i >= 0; i--) { const z = model.zones[i]; if (z.st === st && inRect(p, z)) return { kind: 'zone', id: z.id }; }
+  if (Ly.zones) for (let i = model.zones.length - 1; i >= 0; i--) { const z = model.zones[i]; if (z.st === st && inRect(p, z)) return { kind: 'zone', id: z.id }; }
   for (const s of model.slabs) if (s.st === st && nearRectEdge(p, s, tol)) return { kind: 'slab', id: s.id };
   for (const r of model.roofs) if (r.st === st && inRect(p, r)) return { kind: 'roof', id: r.id };
   for (const s of model.slabs) if (s.st === st && inRect(p, s)) return { kind: 'slab', id: s.id };
@@ -1192,7 +1477,7 @@ function startOp(l) {
       op.type = 'tapsel'; op.view = { ...view }; return;
     }
     case 'wall': op.type = defaults.wall.method === 'rect' ? 'rect' : 'line'; op.target = 'wall'; break;
-    case 'dim': op.type = 'line'; op.target = 'dim'; break;
+    case 'dim': case 'section': case 'rail': case 'beam': case 'label': case 'measure': op.type = 'line'; op.target = tool; break;
     case 'slab': case 'roof': case 'zone': case 'stair': op.type = 'rect'; op.target = tool; break;
     default: op.type = 'place';
   }
@@ -1203,7 +1488,7 @@ function prepMove() {
   const o = op.o;
   if (op.kind === 'wall') op.list = [...coincident(o.x1, o.y1, o.st), ...coincident(o.x2, o.y2, o.st)].map(e => ({ ...e, ox: e.w['x' + e.k], oy: e.w['y' + e.k] }));
   else if (op.kind === 'opening') op.orig = o.pos;
-  else if (op.kind === 'dim') op.orig = [o.x1, o.y1, o.x2, o.y2];
+  else if (LINEK.has(op.kind)) op.orig = op.kind === 'dim' && o.wid ? o.off : [o.x1, o.y1, o.x2, o.y2];
   else op.orig = [o.x, o.y];
 }
 function moveOp(l) {
@@ -1220,13 +1505,14 @@ function moveOp(l) {
     case 'move':
       if (op.kind === 'wall') for (const e of op.list) { e.w['x' + e.k] = r3(e.ox + dx); e.w['y' + e.k] = r3(e.oy + dy); }
       else if (op.kind === 'opening') { const w = wallById(o.wid), { t } = segDist(p, w); o.pos = Math.round(t / .05) * .05; clampOpenings(); }
-      else if (op.kind === 'dim') { o.x1 = r3(op.orig[0] + dx); o.y1 = r3(op.orig[1] + dy); o.x2 = r3(op.orig[2] + dx); o.y2 = r3(op.orig[3] + dy); }
+      else if (op.kind === 'dim' && o.wid) { const g = wgeo(wallById(o.wid)); o.off = r3(op.orig + (p.x - op.p0.x) * g.nx + (p.y - op.p0.y) * g.ny); }
+      else if (LINEK.has(op.kind)) { o.x1 = r3(op.orig[0] + dx); o.y1 = r3(op.orig[1] + dy); o.x2 = r3(op.orig[2] + dx); o.y2 = r3(op.orig[3] + dy); }
       else { o.x = r3(op.orig[0] + dx); o.y = r3(op.orig[1] + dy); }
       tracker(l, op.kind === 'opening' ? [['pos', fmt(o.pos)]] : [['dx', fmt(dx)], ['dy', fmt(dy)]]); dirty3 = true; break;
     case 'handle': {
       const s = snap(p, op.kind === 'wall' ? op.list : [o]); op.snapPt = s;
       if (op.kind === 'wall') { for (const e of op.list) { e.w['x' + e.k] = s.x; e.w['y' + e.k] = s.y; } clampOpenings(); tracker(l, lenAng(op.h.key === '1' ? { x: o.x2, y: o.y2 } : { x: o.x1, y: o.y1 }, s)); }
-      else if (op.kind === 'dim') { o['x' + op.h.key] = s.x; o['y' + op.h.key] = s.y; }
+      else if (LINEK.has(op.kind)) { o['x' + op.h.key] = s.x; o['y' + op.h.key] = s.y; }
       else {
         const i = ['nw', 'ne', 'se', 'sw'].indexOf(op.h.key);
         const fixed = op.fixed || (op.fixed = rectCorners(o)[(i + 2) % 4]);
@@ -1236,7 +1522,7 @@ function moveOp(l) {
       dirty3 = true; break;
     }
   }
-  requestDraw(); if (dirty3) request3();
+  requestDraw(); if (dirty3) { ver++; request3(); requestSec(); }
 }
 function endOp(l, cancelled) {
   const o = op; op = null; tracker(l, null);
@@ -1244,12 +1530,21 @@ function endOp(l, cancelled) {
   const p = toW(l.x, l.y);
   try {
     switch (o.type) {
-      case 'tapsel': if (!o.moved) select(hit(p)); break;
+      case 'tapsel': if (!o.moved) { const pn = pinAt(p); if (pn) openPin(pn); else select(hit(p)); } break;
       case 'move': case 'handle': if (o.moved && snapshot() !== o.before) { pushUndo(o.before); changed(); } break;
       case 'chain': chainPoint(); break;
-      case 'line':
-        if (Math.hypot(o.b.x - o.a.x, o.b.y - o.a.y) < .2) break;
-        pushUndo(); if (o.target === 'wall') mk.wall(curStory, o.a.x, o.a.y, o.b.x, o.b.y); else mk.dim(curStory, o.a.x, o.a.y, o.b.x, o.b.y); changed(); break;
+      case 'line': {
+        const short = Math.hypot(o.b.x - o.a.x, o.b.y - o.a.y) < .2;
+        if (o.target === 'measure') { meas = short ? measureArea(p) : { a: o.a, b: o.b }; break; }
+        if (short) { if (o.target === 'dim') wallChainAt(p); else if (o.target === 'label') askLabel(o.a, o.a); break; }
+        if (o.target === 'label') { askLabel(o.a, o.b); break; }
+        pushUndo();
+        if (o.target === 'wall') mk.wall(curStory, o.a.x, o.a.y, o.b.x, o.b.y);
+        else if (o.target === 'rail' || o.target === 'beam') mk.line(o.target, curStory, o.a.x, o.a.y, o.b.x, o.b.y);
+        else if (o.target === 'section') { const sc = mk.section(o.a.x, o.a.y, o.b.x, o.b.y); curSec = sc.id; setTool('select'); sel = { kind: 'section', id: sc.id }; toast(`Section ${sc.name} added. Tap Open to see it`); }
+        else mk.dim(curStory, o.a.x, o.a.y, o.b.x, o.b.y);
+        changed(); break;
+      }
       case 'rect': rectDone(o, p); break;
       case 'place': placeAt(p); break;
     }
@@ -1273,8 +1568,9 @@ function rectDone(o, p) {
 }
 function placeAt(p) {
   if (tool === 'column') { const s = snap(p); pushUndo(); mk.column(curStory, s.x, s.y); changed(); return; }
-  if (tool === 'furn') {
-    const d = defaults.furn, c = FURN[d.type]; let x = p.x, y = p.y, rot = d.rot;
+  if (tool === 'pin') { addComment(p); return; }
+  if (tool === 'furn' || tool === 'mill') {
+    const d = tool === 'mill' ? defaults.mill : defaults.furn, c = FURN[d.type]; let x = p.x, y = p.y, rot = d.rot;
     if (c.wall) {
       let best = null;
       for (const w of model.walls) { if (w.st !== curStory) continue; const r = segDist(p, w); if (r.d < w.t / 2 + d.d / 2 + .7 && r.d > 1e-3 && (!best || r.d < best.d)) best = { w, ...r }; }
@@ -1341,7 +1637,7 @@ function init3() {
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.style.touchAction = 'none'; pane.prepend(renderer.domElement);
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(45, 1, .1, 600);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f86, .72));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f86, .72); scene.add(hemi); scene.userData.hemi = hemi;
   const sun = new THREE.DirectionalLight(0xffffff, .78); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 120 }); scene.add(sun, sun.target); scene.userData.sun = sun;
   group = new THREE.Group(); scene.add(group);
@@ -1358,6 +1654,7 @@ function frame3() {
   const hHalf = Math.atan(Math.tan(half) * (camera.aspect || 1));
   orbit.tx = (x0 + x1) / 2; orbit.tz = (z0 + z1) / 2; orbit.ty = top / 2.5; orbit.r = R / Math.sin(Math.min(half, hHalf)) * 1.05;
   const sun = scene.userData.sun; sun.position.set(orbit.tx - 14, 30, orbit.tz - 10); sun.target.position.set(orbit.tx, 0, orbit.tz);
+  applySun();
   request3();
 }
 $('#fit3').onclick = frame3;
@@ -1371,20 +1668,33 @@ function build3() {
   scene.background = new THREE.Color(colors.paper || '#ffffff');
   const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .9, ...o });
   const wallMat = { brick: M(0xf2efe8), block: M(0xf6f5f1), concrete: M(0xcfcfca), gypsum: M(0xfbfbf9) };
+  const finMat = {}, TM = k => finMat[k] || (finMat[k] = M(0xffffff, { map: texture(k), roughness: k === 'tile' ? .35 : .85 }));
+  const steel = M(0x5b6168, { roughness: .4, metalness: .5 });
   const glass = M(new THREE.Color(colors.glass || '#3d8fd1'), { transparent: true, opacity: .42, roughness: .1, metalness: .1 });
   const frame = M(0x3a3f44, { roughness: .6 }), wood = M(0xa8774a, { roughness: .7 }), slabM = M(0xd8d5ce), roofM = M(0x5d4a40, { roughness: .8 }), conc = M(0xc9c8c3), stairM = M(0xc49a6c);
   const FM = { wood: M(0xb98a5a, { roughness: .7 }), light: M(0xd9c3a0, { roughness: .8 }), fabric: M(0x6f8fa8, { roughness: 1 }), linen: M(0xf4f1ea, { roughness: 1 }), white: M(0xf7f7f5, { roughness: .4 }), dark: M(0x30343a, { roughness: .5 }), steel: M(0xb9bec4, { roughness: .35, metalness: .4 }), leaf: M(0x5f9a5b, { roughness: .9 }), pot: M(0xb5653f, { roughness: .9 }) };
   for (const st of model.stories) {
     if (!opts.all3d && st.id !== curStory) continue;
     const e = st.elev, on = k => model[LISTS[k]].filter(o => o.st === st.id);
-    for (const z of on('zone')) { const m = M(new THREE.Color(ZONE_COLORS[z.c % ZONE_COLORS.length]).lerp(new THREE.Color(0xffffff), .5), { roughness: 1 }); box(z.w, .02, z.h, m, z.x + z.w / 2, e + .011, z.y + z.h / 2, 0, false); }
+    for (const z of on('zone')) {
+      if (z.floor && FLOORS[z.floor]) { const fm = box(z.w, .02, z.h, TM(z.floor), z.x + z.w / 2, e + .011, z.y + z.h / 2, 0, false); scaleUV(fm.geometry, z.w, .02, z.h); continue; }
+      const m = M(new THREE.Color(ZONE_COLORS[z.c % ZONE_COLORS.length]).lerp(new THREE.Color(0xffffff), .5), { roughness: 1 }); box(z.w, .02, z.h, m, z.x + z.w / 2, e + .011, z.y + z.h / 2, 0, false);
+    }
+    for (const b of on('beam')) { const L = Math.hypot(b.x2 - b.x1, b.y2 - b.y1); box(L, b.h, b.w, conc, (b.x1 + b.x2) / 2, e + b.top - b.h / 2, (b.y1 + b.y2) / 2, -Math.atan2(b.y2 - b.y1, b.x2 - b.x1)); }
+    for (const rl of on('rail')) {
+      const L = Math.hypot(rl.x2 - rl.x1, rl.y2 - rl.y1), ry = -Math.atan2(rl.y2 - rl.y1, rl.x2 - rl.x1), n = Math.max(1, Math.round(L / 1.2));
+      box(L, .04, .05, steel, (rl.x1 + rl.x2) / 2, e + rl.h - .02, (rl.y1 + rl.y2) / 2, ry);
+      const gp = box(L - .04, rl.h - .14, .012, glass, (rl.x1 + rl.x2) / 2, e + .06 + (rl.h - .14) / 2, (rl.y1 + rl.y2) / 2, ry); gp.castShadow = false;
+      for (let i = 0; i <= n; i++) box(.04, rl.h, .04, steel, rl.x1 + (rl.x2 - rl.x1) * i / n, e + rl.h / 2, rl.y1 + (rl.y2 - rl.y1) * i / n, ry);
+    }
     for (const s of on('slab')) box(s.w, s.t, s.h, slabM, s.x + s.w / 2, e - s.t / 2, s.y + s.h / 2, 0);
     for (const c of on('column')) addMesh(c.round ? new THREE.CylinderGeometry(c.w / 2, c.w / 2, c.h, 20) : new THREE.BoxGeometry(c.w, c.h, c.d), conc, c.x, e + c.h / 2, c.y);
     for (const w of on('wall')) {
-      const g = wgeo(w), ry = -Math.atan2(g.uy, g.ux), mat = wallMat[w.mat] || wallMat.brick;
-      const part = (a, b, y0, y1, m = mat, th = w.t) => { if (b - a < 1e-3 || y1 - y0 < 1e-3) return null; const mid = (a + b) / 2; return box(b - a, y1 - y0, th, m, w.x1 + g.ux * mid, e + (y0 + y1) / 2, w.y1 + g.uy * mid, ry); };
+      const g = wgeo(w), ry = -Math.atan2(g.uy, g.ux), mat = w.fin && FINISHES[w.fin] ? TM(w.fin) : wallMat[w.mat] || wallMat.brick;
+      const part = (a, b, y0, y1, m = mat, th = w.t) => { if (b - a < 1e-3 || y1 - y0 < 1e-3) return null; const mid = (a + b) / 2, ms = box(b - a, y1 - y0, th, m, w.x1 + g.ux * mid, e + (y0 + y1) / 2, w.y1 + g.uy * mid, ry); if (m.map) scaleUV(ms.geometry, b - a, y1 - y0, th); return ms; };
       const ops = model.openings.filter(o => o.wid === w.id).sort((p, q) => p.pos - q.pos);
-      let cur = -w.t / 2;
+      const [e1, e2] = wallEnds(w);
+      let cur = -e1;
       for (const o of ops) {
         const a = o.pos - o.w / 2, b = o.pos + o.w / 2, top = Math.min(o.sill + o.h, w.h);
         part(cur, a, 0, w.h); part(a, b, 0, o.sill); part(a, b, top, w.h); cur = b;
@@ -1394,7 +1704,7 @@ function build3() {
           box(len, dh, .04, wood, hx + g.nx * sg * len / 2, e + dh / 2, hz + g.ny * sg * len / 2, -Math.atan2(g.ny * sg, g.nx * sg));
         }
       }
-      part(cur, g.L + w.t / 2, 0, w.h);
+      part(cur, g.L + e2, 0, w.h);
     }
     for (const s of on('stair')) {
       const sg = stairGeo(s), n = risers(s), rh = st.h / n, dep = sg.run / n;
@@ -1404,7 +1714,7 @@ function build3() {
         box(sg.ax === 'x' ? dep : sg.width, hh, sg.ax === 'x' ? sg.width : dep, stairM, cx, e + hh / 2, cz, 0);
       }
     }
-    for (const f of on('furn')) buildFurn3(f, e, FM);
+    for (const f of on('furn')) buildFurn3(f, e + (f.elev || 0), FM);
     for (const r of on('roof')) {
       const base = e + r.base;
       if (r.shape === 'flat' || r.pitch <= 0) { box(r.w, .25, r.h, roofM, r.x + r.w / 2, base + .125, r.y + r.h / 2, 0); continue; }
@@ -1452,9 +1762,65 @@ function buildFurn3(f, e, FM) {
     case 'bath': P(0, 0, W, D, 0, H, FM.white); P(0, 0, W - .14, D - .14, H - .01, .02, FM.steel); break;
     case 'shower': P(0, 0, W, D, 0, .06, FM.white); break;
     case 'plant': { const r = Math.min(W, D) / 2; Cy(0, 0, r * .45, 0, H * .35, FM.pot, r * .6); addMesh(new THREE.SphereGeometry(r, 14, 10), FM.leaf, f.x, e + H * .35 + r * .9, f.y); break; }
+    case 'base': case 'tall': case 'upper': {
+      const n = Math.max(1, f.doors || 1), pl = f.plinth || 0, top = f.type === 'base' ? .03 : 0, ch = H - pl - top, dw = (W - .006 * (n + 1)) / n;
+      if (pl) P(0, -.04, W - .02, D - .1, 0, pl, FM.dark);
+      P(0, -.01, W, D - .02, pl, ch, FM.white);
+      for (let i = 0; i < n; i++) { P(x0 + .006 + dw / 2 + i * (dw + .006), D / 2 - .009, dw, .018, pl + .003, ch - .006, FM.light); P(x0 + .006 + i * (dw + .006) + (i % 2 ? .06 : dw - .06), D / 2 + .012, .012, .02, pl + ch * (f.type === 'upper' ? .1 : .72), ch * .16, FM.steel); }
+      if (top) P(0, .01, W, D + .02, H - top, top, FM.dark);
+      break;
+    }
     default: P(0, 0, W, D, 0, H, FM.light);
   }
 }
+// Procedural 1 m × 1 m textures; scaleUV maps them at true size on any box
+const texCache = {};
+function texture(k) {
+  if (texCache[k]) return texCache[k];
+  const c = document.createElement('canvas'), N = 256; c.width = c.height = N; const q = c.getContext('2d'), rnd = (a, b) => a + Math.random() * (b - a);
+  const base = { render: '#ece6da', brick: '#b5623f', timber: '#b88a5a', concrete: '#bdbcb7', stone: '#c9c0ae', tile: '#e9ecee', carpet: '#8c8f86' }[k] || '#ddd';
+  q.fillStyle = base; q.fillRect(0, 0, N, N);
+  const noise = (n, a) => { for (let i = 0; i < n; i++) { q.fillStyle = `rgba(${Math.random() < .5 ? '0,0,0' : '255,255,255'},${rnd(0, a)})`; q.fillRect(rnd(0, N), rnd(0, N), rnd(1, 3), rnd(1, 3)); } };
+  if (k === 'brick') { const ch = N / 15, bw = N / 4.4; q.fillStyle = '#d9d2c6'; q.fillRect(0, 0, N, N); for (let r = 0; r < 15; r++) for (let x = -(r % 2) * bw / 2; x < N; x += bw) { q.fillStyle = `hsl(${rnd(10, 20)},${rnd(40, 55)}%,${rnd(38, 48)}%)`; q.fillRect(x + 1.5, r * ch + 1.5, bw - 3, ch - 3); } noise(900, .12); }
+  else if (k === 'timber') { const pw = N / 6.6; for (let x = 0; x < N; x += pw) { q.fillStyle = `hsl(30,${rnd(35, 45)}%,${rnd(46, 56)}%)`; q.fillRect(x, 0, pw, N); q.strokeStyle = 'rgba(60,35,15,.25)'; for (let i = 0; i < 6; i++) { q.beginPath(); const gx = x + rnd(3, pw - 3); q.moveTo(gx, 0); q.bezierCurveTo(gx + rnd(-4, 4), N / 3, gx + rnd(-4, 4), N * 2 / 3, gx + rnd(-3, 3), N); q.stroke(); } q.fillStyle = 'rgba(40,25,10,.5)'; q.fillRect(x, 0, 1, N); } }
+  else if (k === 'tile') { const t = N / 4; q.fillStyle = '#c8cdd1'; q.fillRect(0, 0, N, N); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { q.fillStyle = `hsl(200,8%,${rnd(88, 93)}%)`; q.fillRect(i * t + 1.5, j * t + 1.5, t - 3, t - 3); } }
+  else if (k === 'stone') { q.fillStyle = '#a89f8e'; q.fillRect(0, 0, N, N); for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { q.fillStyle = `hsl(${rnd(30, 42)},${rnd(10, 20)}%,${rnd(66, 78)}%)`; q.fillRect(i * N / 4 + (j % 2) * N / 8 + 2, j * N / 3 + 2, N / 4 - 4, N / 3 - 4); } noise(1500, .1); }
+  else if (k === 'concrete') { noise(3000, .1); q.fillStyle = 'rgba(0,0,0,.25)'; for (const [x, y] of [[.2, .25], [.8, .25], [.2, .75], [.8, .75]]) { q.beginPath(); q.arc(x * N, y * N, 3, 0, 7); q.fill(); } q.fillStyle = 'rgba(0,0,0,.12)'; q.fillRect(0, N / 2, N, 1); }
+  else noise(2500, .06);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  return texCache[k] = t;
+}
+function scaleUV(geo, w, h, d) {
+  const uv = geo.attributes.uv; if (!uv) return;
+  for (let f = 0; f < 6; f++) { const [su, sv] = f < 2 ? [d, h] : f < 4 ? [w, d] : [w, h]; for (let v = 0; v < 4; v++) { const i = f * 4 + v; uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } }
+  uv.needsUpdate = true;
+}
+// Sun study: sun position from latitude, date (21st of the month) and solar time; plan north is up
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DOY = [21, 52, 80, 111, 141, 172, 202, 233, 264, 294, 325, 355];
+function sunPos() {
+  const S = opts.sun, d2r = Math.PI / 180, N = DOY[S.month - 1], dec = 23.44 * Math.sin(2 * Math.PI * (284 + N) / 365) * d2r, lat = S.lat * d2r, H = 15 * (S.hour - 12) * d2r;
+  const alt = Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H));
+  const azS = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat)), azN = azS + Math.PI;
+  return { alt, azN };
+}
+function applySun() {
+  if (!scene) return; const sun = scene.userData.sun, hemi = scene.userData.hemi, S = opts.sun;
+  if (!S.on) { sun.intensity = .78; hemi.intensity = .72; sun.position.set(orbit.tx - 14, 30, orbit.tz - 10); request3(); return; }
+  const { alt, azN } = sunPos(), R = 45, ca = Math.cos(alt);
+  sun.position.set(orbit.tx + Math.sin(azN) * ca * R, Math.max(.5, Math.sin(alt) * R), orbit.tz - Math.cos(azN) * ca * R);
+  sun.intensity = alt > 0 ? .9 : 0; hemi.intensity = alt > 0 ? .62 : .4; request3();
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], deg = (azN * 180 / Math.PI + 360) % 360;
+  $('#sunRead').textContent = alt > 0 ? `Sun ${Math.round(alt * 180 / Math.PI)}° high, from the ${dirs[Math.round(deg / 45) % 8]} (${Math.round(deg)}°). Solar time; plan north is up.` : 'The sun is below the horizon at this time.';
+}
+(() => {
+  const S = opts.sun, h = v => `${String(Math.floor(v)).padStart(2, '0')}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`;
+  $('#sunM').innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}"${i + 1 === S.month ? ' selected' : ''}>21 ${m}</option>`).join('');
+  $('#sunR').value = S.hour; $('#sunH').textContent = h(S.hour); $('#sunL').value = S.lat;
+  $('#sunBtn').onclick = () => { S.on = !S.on; $('#sunBtn').setAttribute('aria-pressed', String(S.on)); $('#sunp').hidden = !S.on; applySun(); };
+  $('#sunM').onchange = e => { S.month = Number(e.target.value); applySun(); };
+  $('#sunR').oninput = e => { S.hour = Number(e.target.value); $('#sunH').textContent = h(S.hour); applySun(); };
+  $('#sunL').onchange = e => { const v = parseFloat(String(e.target.value).replace(',', '.')); if (isFinite(v) && Math.abs(v) <= 66) { S.lat = v; applySun(); } else e.target.value = S.lat; };
+})();
 function render3() {
   req3 = false; if (!renderer) return; if (dirty3) build3();
   const { theta, phi, r, tx, ty, tz } = orbit;
@@ -1483,12 +1849,586 @@ function orbitControls(el) {
   el.addEventListener('wheel', e => { e.preventDefault(); orbit.r = Math.min(200, Math.max(2, orbit.r * Math.exp(e.deltaY * .001))); request3(); }, { passive: false });
 }
 
+/* ================= sections ================= */
+// Section frame: d = depth in the look direction, h = horizontal position as seen by someone standing on the cut line looking along d
+function secFrame(sec) {
+  const L = Math.hypot(sec.x2 - sec.x1, sec.y2 - sec.y1) || 1e-6, ux = (sec.x2 - sec.x1) / L, uy = (sec.y2 - sec.y1) / L, f = sec.flip < 0 ? -1 : 1, dx = -uy * f, dy = ux * f;
+  return { ox: sec.x1, oy: sec.y1, dx, dy, rx: -dy, ry: dx, L };
+}
+const toHD = (F, x, y) => [(x - F.ox) * F.rx + (y - F.oy) * F.ry, (x - F.ox) * F.dx + (y - F.oy) * F.dy];
+const fromHD = (F, h, d) => [F.ox + F.rx * h + F.dx * d, F.oy + F.ry * h + F.dy * d];
+// Where a convex polygon crosses the line (axis a) = v: returns the [min,max] of the other coordinate
+function slice(P, a, v) {
+  const out = [], b = 1 - a;
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], q = P[(i + 1) % P.length], pa = p[a] - v, qa = q[a] - v;
+    if (pa === 0) out.push(p[b]);
+    if ((pa < 0 && qa > 0) || (pa > 0 && qa < 0)) out.push(p[b] + (q[b] - p[b]) * pa / (pa - qa));
+  }
+  if (out.length < 2) return null; const lo = Math.min(...out), hi = Math.max(...out); return hi - lo > 1e-5 ? [lo, hi] : null;
+}
+let secCache = null;
+function sectionPrims(sec) {
+  const ck = ver + '|' + JSON.stringify(sec); if (secCache && secCache.k === ck) return secCache.d;
+  const F = secFrame(sec), depth = sec.depth || 20, hB = (sec.x2 - sec.x1) * F.rx + (sec.y2 - sec.y1) * F.ry, hlo = Math.min(0, hB), hhi = Math.max(0, hB);
+  const HD = pts => pts.map(([x, y]) => toHD(F, x, y));
+  const cut = [], proj = [], glass = [];
+  const R = (h0, h1, z0, z1) => [[h0, z0], [h1, z0], [h1, z1], [h0, z1]];
+  const inFront = P => { const ds = P.map(p => p[1]), hs = P.map(p => p[0]); return Math.max(...ds) > 0 && Math.min(...ds) < depth && Math.max(...hs) > hlo && Math.min(...hs) < hhi; };
+  const key = P => Math.max(0, Math.min(...P.map(p => p[1])));
+  const hx = P => { const hs = P.map(p => p[0]); return [Math.min(...hs), Math.max(...hs)]; };
+  const box = (P, z0, z1, fill) => {
+    const ci = slice(P, 1, 0);
+    if (ci) { cut.push({ pts: R(ci[0], ci[1], z0, z1), fill }); return; }
+    if (inFront(P)) { const [a, b] = hx(P); proj.push({ pts: R(a, b, z0, z1), key: key(P) }); }
+  };
+  // Height-field elements (stairs, pitched roofs): cut outline sampled along the line, elevation silhouette = highest point seen along each sight line
+  const hf = (P, zf, zb, stepped, fill, crit) => {
+    const ci = slice(P, 1, 0);
+    if (ci) {
+      const N = Math.max(2, Math.ceil((ci[1] - ci[0]) / (stepped ? .01 : .05))), hs = [];
+      for (let i = 0; i <= N; i++) hs.push(ci[0] + (ci[1] - ci[0]) * i / N);
+      if (crit) { const [px, py] = fromHD(F, ci[0], 0), [qx, qy] = fromHD(F, ci[1], 0); for (const t of crit(px, py, qx, qy)) if (t > 0 && t < 1) hs.push(ci[0] + (ci[1] - ci[0]) * t); hs.sort((a, b) => a - b); }
+      const top = [], bot = []; let pz = null;
+      for (const h of hs) { const [x, y] = fromHD(F, h, 0), z = zf(x, y); if (stepped && pz != null && Math.abs(z - pz) > 1e-6) top.push([h, pz]); top.push([h, z]); pz = z; bot.push([h, zb(x, y)]); }
+      cut.push({ pts: top.concat(bot.reverse()), fill }); // the part beyond the cut still shows as elevation below
+    }
+    if (!inFront(P)) return;
+    const [a, b] = hx(P), h0 = Math.max(hlo, a), h1 = Math.min(hhi, b); if (h1 <= h0) return;
+    const N = Math.max(2, Math.ceil((h1 - h0) / (stepped ? .02 : .05))), kk = key(P);
+    let top = [], bot = [], pz = null;
+    const flush = () => { if (top.length > 1) proj.push({ pts: top.concat(bot.reverse()), key: kk }); top = []; bot = []; pz = null; };
+    for (let i = 0; i <= N; i++) {
+      const h = h0 + (h1 - h0) * i / N, ri = slice(P, 0, h); if (!ri) { flush(); continue; }
+      const d0 = Math.max(0, ri[0]), d1 = Math.min(depth, ri[1]); if (d1 < d0) { flush(); continue; }
+      const ds = [d0, d1];
+      if (crit) { const [px, py] = fromHD(F, h, d0), [qx, qy] = fromHD(F, h, d1); for (const t of crit(px, py, qx, qy)) if (t > 0 && t < 1) ds.push(d0 + (d1 - d0) * t); }
+      let zt = -Infinity, zbm = Infinity; for (const d of ds) { const [x, y] = fromHD(F, h, d); zt = Math.max(zt, zf(x, y)); zbm = Math.min(zbm, zb(x, y)); }
+      if (stepped && pz != null && Math.abs(zt - pz) > 1e-6) top.push([h, pz]);
+      top.push([h, zt]); bot.push([h, zbm]); pz = zt;
+    }
+    flush();
+  };
+  const only = sec.onlySt, above = only ? storyAbove(only) : null;
+  for (const st of model.stories) {
+    const e = st.elev, on = k => model[LISTS[k]].filter(o => o.st === st.id);
+    if (only && st.id !== only) { if (above && st.id === above.id) for (const s of on('slab')) box(HD(rectCorners(s)), e - s.t, e, 'concrete'); continue; }
+    for (const rl of on('rail')) box(HD(lineQuad(rl, .05)), e, e + rl.h, 'concrete');
+    for (const b of on('beam')) box(HD(lineQuad(b, b.w)), e + b.top - b.h, e + b.top, 'concrete');
+    for (const w of on('wall')) {
+      const P = HD(wallQuad(w)), ci = slice(P, 1, 0), ops = model.openings.filter(o => o.wid === w.id), g = wgeo(w);
+      if (ci) {
+        const d1 = toHD(F, w.x1, w.y1)[1], d2 = toHD(F, w.x2, w.y2)[1];
+        let o = null; if (Math.abs(d1 - d2) > 1e-6) { const t = d1 / (d1 - d2) * g.L; o = ops.find(q => Math.abs(t - q.pos) < q.w / 2); }
+        if (!o) cut.push({ pts: R(ci[0], ci[1], e, e + w.h), fill: w.mat });
+        else {
+          const top = Math.min(o.sill + o.h, w.h);
+          if (o.sill > .001) cut.push({ pts: R(ci[0], ci[1], e, e + o.sill), fill: w.mat });
+          if (top < w.h - .001) cut.push({ pts: R(ci[0], ci[1], e + top, e + w.h), fill: w.mat });
+          if (o.type === 'window') glass.push({ h0: ci[0], h1: ci[1], z0: e + o.sill, z1: e + top });
+        }
+      } else if (inFront(P)) {
+        const [a, b] = hx(P), holes = [];
+        for (const o of ops) {
+          const top = Math.min(o.sill + o.h, w.h), pa = o.pos - o.w / 2, pb = o.pos + o.w / 2;
+          const ha = toHD(F, w.x1 + g.ux * pa, w.y1 + g.uy * pa)[0], hb = toHD(F, w.x1 + g.ux * pb, w.y1 + g.uy * pb)[0];
+          if (Math.abs(ha - hb) > .03) holes.push({ h0: Math.min(ha, hb), h1: Math.max(ha, hb), z0: e + o.sill, z1: e + top, type: o.type });
+        }
+        proj.push({ pts: R(a, b, e, e + w.h), key: key(P), holes });
+      }
+    }
+    for (const s of on('slab')) box(HD(rectCorners(s)), e - s.t, e, 'concrete');
+    for (const c of on('column')) box(HD([[c.x - c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y + c.d / 2], [c.x - c.w / 2, c.y + c.d / 2]]), e, e + c.h, 'concrete');
+    for (const f of on('furn')) {
+      const P = HD(furnCorners(f)), c = slice(P, 1, 0); if (!c && !inFront(P)) continue;
+      const [a, b] = hx(P), z0 = e + (f.elev || 0), pr = { pts: R(a, b, z0, z0 + f.h), key: c ? -1 : key(P), lines: [] };
+      if (isMill(f)) { // cabinet front facing the viewer: door splits, plinth and worktop lines
+        const an = (f.rot || 0) * Math.PI / 180, fx = -Math.sin(an), fy = Math.cos(an);
+        if (-(fx * F.dx + fy * F.dy) > .7) {
+          const n = Math.max(1, f.doors || 1), pl = f.plinth || 0, top = z0 + f.h - (f.type === 'base' ? .03 : 0);
+          for (let i = 1; i < n; i++) { const [x, y] = furnXY(f, -f.w / 2 + f.w * i / n, f.d / 2), h = toHD(F, x, y)[0]; pr.lines.push([h, z0 + pl, h, top]); }
+          if (pl) pr.lines.push([a, z0 + pl, b, z0 + pl]); if (f.type === 'base') pr.lines.push([a, top, b, top]);
+        }
+      }
+      proj.push(pr);
+    }
+    for (const s of on('stair')) {
+      const sg = stairGeo(s), n = risers(s), rh = st.h / n, dep = sg.run / n, ux = (sg.b[0] - sg.a[0]) / sg.run, uy = (sg.b[1] - sg.a[1]) / sg.run;
+      const zf = (x, y) => e + Math.min(n, Math.max(1, Math.ceil(((x - sg.a[0]) * ux + (y - sg.a[1]) * uy) / dep - 1e-6))) * rh;
+      hf(HD(rectCorners(s)), zf, () => e, true, 'concrete', null);
+    }
+    for (const r of on('roof')) {
+      const base = e + r.base, T = .22;
+      if (r.shape === 'flat' || r.pitch <= 0) { box(HD(rectCorners(r)), base, base + .25, 'concrete'); continue; }
+      const ax = r.ridge === 'x', half = (ax ? r.h : r.w) / 2, c0 = ax ? r.y + r.h / 2 : r.x + r.w / 2, rise = half * Math.tan(r.pitch * Math.PI / 180);
+      const zb = (x, y) => base + rise * (1 - Math.min(1, Math.abs((ax ? y : x) - c0) / half));
+      const crit = (px, py, qx, qy) => { const a = ax ? py : px, b = ax ? qy : qx; return Math.abs(b - a) > 1e-9 ? [(c0 - a) / (b - a)] : []; };
+      hf(HD(rectCorners(r)), (x, y) => zb(x, y) + T, zb, false, 'concrete', crit);
+    }
+  }
+  proj.sort((a, b) => b.key - a.key);
+  let h0 = Infinity, h1 = -Infinity, z0 = 0, z1 = 0;
+  for (const p of cut.concat(proj)) for (const [h, z] of p.pts) { const hc = Math.min(hhi, Math.max(hlo, h)); h0 = Math.min(h0, hc); h1 = Math.max(h1, hc); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+  if (!isFinite(h0)) { h0 = hlo; h1 = hhi; z1 = 3; }
+  const levels = only ? [storyOf(only), above].filter(Boolean).map((s, i) => ({ z: s.elev, name: i ? 'Ceiling · ' + storyLabel(s) : storyLabel(s) })) : stories().map(s => ({ z: s.elev, name: storyLabel(s) }));
+  for (const l of levels) z1 = Math.max(z1, l.z);
+  if (only) { const s0 = storyOf(only); z0 = Math.max(z0, s0.elev - .5); z1 = Math.min(z1, above ? above.elev + .3 : s0.elev + s0.h + .3); }
+  const d = { room: !!sec.room, cut, proj, glass, levels, hlo, hhi, ext: { h0, h1, z0, z1 }, frame: only ? { h0: h0 - .3, h1: h1 + 3.6, z0: z0 - .2, z1: z1 + .3 } : { h0: h0 - .8, h1: h1 + 3.6, z0: z0 - 1.1, z1: z1 + .6 } };
+  secCache = { k: ck, d }; return d;
+}
+// Draws a section in world metres (h right, z up) onto any 2D context: screen, or a sheet for export
+function drawSection(c, v, W, H, col, pt, D, o) {
+  const S = (h, z) => [v.x + h * v.s, v.y - z * v.s];
+  const path = pts => { c.beginPath(); pts.forEach(([h, z], i) => { const [x, y] = S(h, z); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath(); };
+  const R = (h0, h1, z0, z1) => [[h0, z0], [h1, z0], [h1, z1], [h0, z1]];
+  const lw = o.lw, e = D.ext;
+  if (o.bg) { c.fillStyle = col.paper; c.fillRect(0, 0, W, H); }
+  c.save(); c.lineJoin = 'miter';
+  const [cx0] = S(D.hlo, 0), [cx1] = S(D.hhi, 0);
+  c.save(); c.beginPath(); c.rect(cx0, 0, cx1 - cx0, H); c.clip();
+  if (D.room) { c.beginPath(); const [, ty] = S(0, e.z1), [, by] = S(0, e.z0); c.rect(cx0, ty, cx1 - cx0, by - ty); c.clip(); }
+  // ground: hatched soil band under level 0
+  const [g0x, gy] = S(e.h0 - 1.5, 0), [g1x] = S(e.h1 + 1.5, 0), gd = .7 * v.s;
+  c.save(); c.beginPath(); c.rect(g0x, gy, g1x - g0x, gd); c.clip(); c.strokeStyle = col.thin; c.lineWidth = .6; c.beginPath();
+  const step = Math.max(5, .22 * v.s); for (let x = g0x - gd; x < g1x; x += step) { c.moveTo(x, gy + gd); c.lineTo(x + gd, gy); } c.stroke(); c.restore();
+  // what lies beyond the cut, far to near, thin lines with paper fill so nearer elements hide farther ones
+  c.lineWidth = lw * .45; c.strokeStyle = col.ink;
+  for (const p of D.proj) {
+    path(p.pts); c.fillStyle = col.paper; c.fill(); c.stroke();
+    for (const [h0, z0, h1, z1] of p.lines || []) { const a = S(h0, z0), b = S(h1, z1); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+    for (const hl of p.holes || []) {
+      path(R(hl.h0, hl.h1, hl.z0, hl.z1));
+      if (hl.type === 'window') { c.globalAlpha = .16; c.fillStyle = col.glass; c.fill(); c.globalAlpha = 1; }
+      c.stroke();
+      if (hl.type === 'window') { const zm = (hl.z0 + hl.z1) / 2, a = S(hl.h0, zm), b = S(hl.h1, zm); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+    }
+  }
+  // cut elements: heavy outline pass, then fills, so walls and slabs read as one merged poché
+  c.strokeStyle = col.ink; c.lineWidth = lw * 2;
+  for (const p of D.cut) { path(p.pts); c.stroke(); }
+  for (const p of D.cut) { path(p.pts); c.fillStyle = pt[p.fill] || pt.concrete; c.fill(); }
+  for (const g of D.glass) {
+    const hm = (g.h0 + g.h1) / 2, dd = Math.max(.012, 1.4 / v.s);
+    c.strokeStyle = col.ink; c.lineWidth = lw * .45; path(R(g.h0, g.h1, g.z0, g.z1)); c.stroke();
+    c.strokeStyle = col.glass; c.lineWidth = lw * .8;
+    for (const sg of [-1, 1]) { const a = S(hm + sg * dd, g.z0), b = S(hm + sg * dd, g.z1); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+  }
+  c.strokeStyle = col.ink; c.lineWidth = lw * 1.6; c.beginPath(); c.moveTo(g0x, gy); c.lineTo(g1x, gy); c.stroke();
+  c.restore();
+  // story levels
+  const fs = Math.round(10.5 * o.k), lx0 = Math.max(cx0, S(e.h0 - .5, 0)[0]), lx1 = Math.min(cx1, S(e.h1, 0)[0]) + .9 * v.s;
+  c.font = `500 ${fs}px ${col.mono}`;
+  for (const L of D.levels) {
+    const [, y] = S(0, L.z), t = 5.5 * o.k;
+    c.strokeStyle = col.muted; c.lineWidth = .7; c.setLineDash([6, 4]); c.beginPath(); c.moveTo(lx0, y); c.lineTo(lx1, y); c.stroke(); c.setLineDash([]);
+    c.fillStyle = col.ink; c.beginPath(); c.moveTo(lx1, y); c.lineTo(lx1 - t, y - t * 1.5); c.lineTo(lx1 + t, y - t * 1.5); c.closePath(); c.fill();
+    c.textAlign = 'left'; c.textBaseline = 'bottom'; c.fillText((L.z >= 0 ? '+' : '') + fmt(L.z), lx1 + t + 5, y - 2);
+    c.fillStyle = col.muted; c.textBaseline = 'top'; c.fillText(L.name, lx1 + t + 5, y + 2);
+  }
+  c.restore();
+}
+
+/* section view */
+const secView = { x: 40, y: 300, s: 40 };
+let secReq = false, secFitted = false;
+const DIRN = { n: 'North', e: 'East', s: 'South', w: 'West' };
+// Interior elevation of one wall of a room: a cut line just inside the opposite face, looking at that wall, limited to the room's story
+function roomElev(z, k) {
+  const i = .02, L = { n: [z.x, z.y + z.h - i, z.x + z.w, z.y + z.h - i, -1], s: [z.x, z.y + i, z.x + z.w, z.y + i, 1], e: [z.x + i, z.y, z.x + i, z.y + z.h, -1], w: [z.x + z.w - i, z.y, z.x + z.w - i, z.y + z.h, 1] }[k];
+  return { id: `ie:${z.id}:${k}`, name: k.toUpperCase(), dirName: DIRN[k], x1: L[0], y1: L[1], x2: L[2], y2: L[3], flip: L[4], depth: (k === 'n' || k === 's' ? z.h : z.w) + .6, onlySt: z.st, room: z.id, title: `${z.num || ''} ${z.name} · ${DIRN[k]} wall`.trim() };
+}
+const curSecObj = () => {
+  let s = null;
+  if (curSec && curSec.startsWith('ie:')) { const [, zid, k] = curSec.split(':'), z = model.zones.find(x => x.id === zid); if (z && DIRN[k]) s = roomElev(z, k); }
+  if (!s) s = model.sections.find(x => x.id === curSec) || model.sections[0] || (model.zones[0] ? roomElev(model.zones[0], 'n') : null);
+  curSec = s ? s.id : null; return s;
+};
+function requestSec() { if (viewMode !== 'section' || secReq) return; secReq = true; requestAnimationFrame(drawSecView); }
+function fitSec(D) {
+  const W = scv.clientWidth, H = scv.clientHeight; if (!W || !H || !D) return;
+  const f = D.frame, lab = 125, wM = D.ext.h1 + .9 - f.h0; // keep room on the right for level labels, which are fixed-size text
+  secView.s = Math.min((W - 24 - lab) / wM, (H - 60) / (f.z1 - f.z0));
+  secView.x = 12 + (W - 24 - lab - wM * secView.s) / 2 - f.h0 * secView.s; secView.y = (H + 36) / 2 + (f.z0 + f.z1) / 2 * secView.s; secFitted = true;
+}
+function renderSecChrome() {
+  const sel_ = $('#secSel'), sec = curSecObj(), id = sec ? sec.id : '';
+  let opts_ = model.sections.length ? `<optgroup label="Sections">${model.sections.map(s => `<option value="${s.id}">Section ${esc(s.name)}–${esc(s.name)}</option>`).join('')}</optgroup>` : '';
+  for (const st of stories()) { const zs = model.zones.filter(z => z.st === st.id); if (zs.length) opts_ += `<optgroup label="Room elevations · ${esc(storyLabel(st))}">${zs.map(z => ['n', 'e', 's', 'w'].map(k => `<option value="ie:${z.id}:${k}">${esc(z.num || '')} ${esc(z.name)} · ${DIRN[k]}</option>`).join('')).join('')}</optgroup>`; }
+  if (sel_.dataset.k !== opts_) { sel_.innerHTML = opts_; sel_.dataset.k = opts_; }
+  sel_.value = id;
+  $('#secEmpty').hidden = !!sec; sel_.hidden = $('#secFit').hidden = !sec; $('#secFlip').hidden = !sec || !!sec.room;
+}
+function drawSecView() {
+  secReq = false; const W = scv.clientWidth, H = scv.clientHeight; if (!W || !H) return;
+  renderSecChrome(); const sec = curSecObj();
+  sctx.fillStyle = colors.paper; sctx.fillRect(0, 0, W, H); if (!sec) return;
+  const D = sectionPrims(sec); if (!secFitted) fitSec(D);
+  drawSection(sctx, secView, W, H, colors, secPats, D, { lw: Math.max(.8, Math.min(2.2, secView.s / 35)), k: Math.min(1.4, Math.max(.8, secView.s / (3780 / opts.scale))) });
+}
+$('#secSel').onchange = e => { curSec = e.target.value; secFitted = false; requestSec(); };
+$('#secFit').onclick = () => { secFitted = false; requestSec(); };
+$('#secFlip').onclick = () => { const s = curSecObj(); if (!s) return; pushUndo(); s.flip = s.flip < 0 ? 1 : -1; secFitted = false; changed(); };
+function zoomSec(mx, my, f) { const ns = Math.min(900, Math.max(3, secView.s * f)), wx = (mx - secView.x) / secView.s, wy = (my - secView.y) / secView.s; secView.s = ns; secView.x = mx - wx * ns; secView.y = my - wy * ns; }
+(() => {
+  const P = new Map(); let g = null;
+  scv.addEventListener('pointerdown', e => { scv.setPointerCapture(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY }); g = null; });
+  scv.addEventListener('pointermove', e => {
+    if (!P.has(e.pointerId)) return; const prev = P.get(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (P.size === 1) { secView.x += e.clientX - prev.x; secView.y += e.clientY - prev.y; }
+    else { const [a, b] = [...P.values()], r = scv.getBoundingClientRect(), d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top; if (g) { zoomSec(mx, my, d / g.d); secView.x += mx - g.mx; secView.y += my - g.my; } g = { d, mx, my }; }
+    requestSec();
+  });
+  const end = e => { P.delete(e.pointerId); g = null; };
+  scv.addEventListener('pointerup', end); scv.addEventListener('pointercancel', end);
+  scv.addEventListener('wheel', e => { e.preventDefault(); const r = scv.getBoundingClientRect(); zoomSec(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * .0015)); requestSec(); }, { passive: false });
+})();
+
+/* ================= export: sheets with title block, PDF or PNG ================= */
+const SHEETS = [['A4', 297, 210], ['A3', 420, 297], ['A2', 594, 420], ['A1', 841, 594]], SCALES = [50, 100, 200, 500];
+const slug = s => String(s).normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'drawing';
+function planExtent(st) {
+  const xs = [], ys = [], add = (x, y) => { xs.push(x); ys.push(y); };
+  for (const w of model.walls) if (w.st === st) for (const [x, y] of wallQuad(w)) add(x, y);
+  for (const k of ['slabs', 'roofs', 'zones', 'stairs']) for (const o of model[k]) if (o.st === st) for (const [x, y] of rectCorners(o)) add(x, y);
+  for (const f of model.furniture) if (f.st === st) for (const [x, y] of furnCorners(f)) add(x, y);
+  for (const c of model.columns) if (c.st === st) add(c.x, c.y);
+  for (const d of model.dims) if (d.st === st) for (const [x, y] of dimLine(d) || []) add(x, y);
+  for (const k of ['rails', 'beams', 'labels']) for (const o of model[k]) if (o.st === st) { add(o.x1, o.y1); add(o.x2, o.y2); }
+  for (const s of model.sections) { add(s.x1, s.y1); add(s.x2, s.y2); }
+  if (!xs.length) return null; const p = 1;
+  return { x0: Math.min(...xs) - p, y0: Math.min(...ys) - p, x1: Math.max(...xs) + p, y1: Math.max(...ys) + p };
+}
+const hasContent = st => Object.values(LISTS).some(k => model[k].some(o => o.st === st));
+function pickSheet(fn, scale) {
+  for (let i = Math.max(0, SCALES.indexOf(scale)); i < SCALES.length; i++) {
+    const sc = SCALES[i], [wmm, hmm] = fn(sc);
+    for (const [name, W, H] of SHEETS) if (wmm <= W - 34 && hmm <= H - 34 - 20) return { name, W, H, scale: sc };
+  }
+  return { name: 'A1', W: 841, H: 594, scale: SCALES.at(-1) };
+}
+const secTitle = s => s.room ? s.title : `Section ${s.name}–${s.name}`;
+// One sheet: a plan, one section, a room's four elevations (2 × 2), or the schedule tables
+function composeSheet(item, scale, no, of) {
+  const col = { ...LIGHT, mono: colors.mono, cond: colors.cond, sans: colors.sans };
+  let title, ext = null, panels = null, sh, wM = 0, hM = 0;
+  if (item.kind === 'plan') {
+    ext = planExtent(item.st) || { x0: -1, y0: -1, x1: 11, y1: 9 }; title = storyLabel(storyOf(item.st)); wM = ext.x1 - ext.x0; hM = ext.y1 - ext.y0;
+    sh = pickSheet(sc => [wM * 1000 / sc, hM * 1000 / sc + 16], scale);
+  } else if (item.kind === 'schedule') { title = 'Door, window & room schedule'; sh = { name: 'A3', W: 420, H: 297, scale: 0 }; }
+  else {
+    const secs = item.kind === 'elevs' ? ['n', 'e', 's', 'w'].map(d => roomElev(item.zone, d)) : [item.sec];
+    panels = secs.map(sec => ({ sec, D: sectionPrims(sec) }));
+    title = item.kind === 'elevs' ? `Room elevations · ${item.zone.num || ''} ${item.zone.name}` : secTitle(item.sec);
+    const cols = panels.length > 1 ? 2 : 1, rows = Math.ceil(panels.length / cols), sub = panels.length > 1 ? 8 : 0;
+    panels.cols = cols; panels.rows = rows; panels.sub = sub;
+    panels.cw = Math.max(...panels.map(p => p.D.frame.h1 - p.D.frame.h0)); panels.ch = Math.max(...panels.map(p => p.D.frame.z1 - p.D.frame.z0));
+    sh = pickSheet(sc => [cols * panels.cw * 1000 / sc + (cols - 1) * 12, rows * (panels.ch * 1000 / sc + sub) + (rows - 1) * 10 + 16], scale);
+  }
+  const k = Math.min(150, Math.sqrt(1.2e7 / (sh.W * sh.H)) * 25.4) / 25.4; // px per mm, capped near 12 MP for phones
+  const c = document.createElement('canvas'); c.width = Math.round(sh.W * k); c.height = Math.round(sh.H * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  const s = sh.scale ? k * 1000 / sh.scale : 0, aw = (sh.W - 34) * k, ah = (sh.H - 34 - 20 - 16) * k, annK = s ? Math.min(1.5, Math.max(.75, s / (3780 / sh.scale))) : 1;
+  let ox = 17 * k, oy = 17 * k, dw = aw, dh = ah;
+  if (item.kind === 'plan') {
+    dw = wM * s; dh = hM * s; ox = 17 * k + (aw - dw) / 2; oy = 17 * k + (ah - dh) / 2;
+    const save_ = { ctx, colors, pats, v: { ...view }, trace: opts.trace, sel, cur: curStory, chain, meas };
+    ctx = g; colors = col; pats = makePats(g, col); view.s = s; view.x = ox - ext.x0 * s; view.y = oy - ext.y0 * s;
+    opts.trace = false; sel = null; chain = null; meas = null; curStory = item.st; EXP.on = true; EXP.W = c.width; EXP.H = c.height;
+    try { draw(); } finally { ctx = save_.ctx; colors = save_.colors; pats = save_.pats; Object.assign(view, save_.v); opts.trace = save_.trace; sel = save_.sel; curStory = save_.cur; chain = save_.chain; meas = save_.meas; EXP.on = false; requestDraw(); }
+  } else if (panels) {
+    const gx = 12 * k, gy = 10 * k, sub = panels.sub * k, cwp = panels.cw * s, chp = panels.ch * s, pp = makePats(g, col);
+    dw = panels.cols * cwp + (panels.cols - 1) * gx; dh = panels.rows * (chp + sub) + (panels.rows - 1) * gy;
+    ox = 17 * k + (aw - dw) / 2; oy = 17 * k + (ah - dh) / 2;
+    panels.forEach((p, i) => {
+      const cx = ox + (i % panels.cols) * (cwp + gx), cy = oy + Math.floor(i / panels.cols) * (chp + sub + gy), f = p.D.frame, pw = (f.h1 - f.h0) * s, ph = (f.z1 - f.z0) * s, px = cx + (cwp - pw) / 2, py = cy + chp - ph;
+      drawSection(g, { x: px - f.h0 * s, y: py + f.z1 * s, s }, c.width, c.height, col, pp, p.D, { lw: Math.max(.8, Math.min(2.2, s / 35)), k: annK });
+      if (sub) { g.fillStyle = LIGHT.ink; g.font = `600 ${Math.round(3.6 * k)}px ${col.sans}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(p.sec.dirName + ' wall', px + .6 * s, cy + chp + 6 * k); }
+    });
+  } else drawScheduleTables(g, k, ox, oy, aw, ah + 10 * k, col);
+  // sheet border, drawing title, north arrow, scale bar, title block
+  const W = c.width, H = c.height, M = 10 * k, ink = LIGHT.ink, mut = LIGHT.muted, F = (wt, mm, fam) => `${wt} ${Math.round(mm * k)}px ${fam || col.sans}`;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, M); g.fillRect(0, H - M, W, M); g.fillRect(0, 0, M, H); g.fillRect(W - M, 0, M, H);
+  const tbH = 20 * k, ty = H - M - tbH; g.fillRect(M, ty, W - 2 * M, tbH);
+  g.strokeStyle = ink; g.lineWidth = .5 * k; g.strokeRect(M, M, W - 2 * M, H - 2 * M);
+  g.lineWidth = .3 * k; g.beginPath(); g.moveTo(M, ty); g.lineTo(W - M, ty); g.stroke();
+  if (item.kind !== 'schedule') {
+    const tyD = Math.min(ty - 6 * k, oy + dh + 9 * k);
+    g.fillStyle = ink; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.font = F(600, 5);
+    g.fillText(title, ox, tyD); const tw = g.measureText(title).width;
+    g.font = F(400, 3.5, col.mono); g.fillStyle = mut; g.fillText('1:' + sh.scale, ox + tw + 4 * k, tyD);
+    g.strokeStyle = ink; g.lineWidth = .35 * k; g.beginPath(); g.moveTo(ox, tyD + 2 * k); g.lineTo(ox + Math.max(tw + 22 * k, 70 * k), tyD + 2 * k); g.stroke();
+    const bx = Math.min(W - M - 7 * k - 5 * s, ox + Math.max(tw + 30 * k, 80 * k)), by = tyD - 2.4 * k;
+    for (let i = 0; i < 5; i++) { g.fillStyle = i % 2 ? '#fff' : ink; g.fillRect(bx + i * s, by, s, 1.6 * k); }
+    g.strokeStyle = ink; g.lineWidth = .25 * k; g.strokeRect(bx, by, 5 * s, 1.6 * k);
+    g.fillStyle = mut; g.font = F(400, 2.4, col.mono); g.textAlign = 'center'; g.fillText('0', bx, by - 1.2 * k); g.fillText('5 m', bx + 5 * s, by - 1.2 * k);
+  }
+  if (item.kind === 'plan') {
+    const nx = W - M - 16 * k, ny = M + 18 * k, r = 6 * k;
+    g.strokeStyle = ink; g.lineWidth = .35 * k; g.beginPath(); g.arc(nx, ny, r, 0, 7); g.stroke();
+    g.fillStyle = ink; g.beginPath(); g.moveTo(nx, ny - r); g.lineTo(nx + r * .45, ny + r * .55); g.lineTo(nx, ny + r * .25); g.lineTo(nx - r * .45, ny + r * .55); g.closePath(); g.fill();
+    g.font = F(600, 3.5); g.textAlign = 'center'; g.fillText('N', nx, ny - r - 1.8 * k);
+  }
+  const cells = [['Project', model.name, .32], ['Drawing', title, .24], ['Scale', sh.scale ? '1:' + sh.scale : '—', .09], ['Date', new Date().toISOString().slice(0, 10), .12], ['Sheet', `${sh.name}  ${no} / ${of}`, .12], ['Made with', 'Pocket BIM', .11]];
+  let x = M; const tw2 = W - 2 * M; g.strokeStyle = ink; g.lineWidth = .3 * k;
+  cells.forEach(([lab, val, f], i) => {
+    const cw = tw2 * f; if (i) { g.beginPath(); g.moveTo(x, ty); g.lineTo(x, H - M); g.stroke(); }
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = mut; g.font = F(500, 2.2, col.cond); g.fillText(lab.toUpperCase(), x + 3 * k, ty + 5.5 * k);
+    g.fillStyle = ink; g.font = F(i < 2 ? 600 : 400, i < 2 ? 4.6 : 3.8); g.fillText(val, x + 3 * k, ty + 14 * k, cw - 6 * k); x += cw;
+  });
+  return { canvas: c, sheet: sh, title };
+}
+/* schedule data, shared by the sheet, the Navigator and the CSV */
+function scheduleData() {
+  const ids = openingIds();
+  const ops = model.openings.map(o => ({ o, id: ids.get(o.id) || '', w: wallById(o.wid) })).filter(e => e.w).sort((a, b) => a.id.localeCompare(b.id));
+  const zs = stories().flatMap(st => model.zones.filter(z => z.st === st.id).sort((a, b) => String(a.num).localeCompare(String(b.num))));
+  return {
+    open: { title: 'Doors and windows', cols: [['ID', .11], ['Type', .13], ['Width', .12], ['Height', .12], ['Sill', .1], ['Story', .22], ['Wall', .2]],
+      rows: ops.map(e => [e.id, e.o.type === 'door' ? 'Door' : 'Window', fmt(e.o.w), fmt(Math.min(e.o.h, e.w.h - e.o.sill)), fmt(e.o.sill), (storyOf(e.w.st) || {}).name || '', `${MATS[e.w.mat] || ''} ${Math.round(e.w.t * 1000)}`]) },
+    rooms: { title: 'Rooms', cols: [['No.', .1], ['Name', .24], ['Area m²', .13], ['Floor', .18], ['Finishes', .35]],
+      rows: zs.map(z => [z.num || '', z.name, fmt(z.w * z.h), FLOORS[z.floor] || '—', z.fin || '—']) }
+  };
+}
+function drawScheduleTables(g, k, x0, y0, aw, ah, col) {
+  const d = scheduleData(), cw = (aw - 12 * k) / 2;
+  [d.open, d.rooms].forEach((T, i) => {
+    const x = x0 + i * (cw + 12 * k); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = LIGHT.ink; g.font = `600 ${Math.round(5 * k)}px ${col.sans}`; g.fillText(T.title, x, y0 + 6 * k);
+    const avail = ah - 14 * k; let rh = 6.5 * k; if ((T.rows.length + 1) * rh > avail) rh = Math.max(3 * k, avail / (T.rows.length + 1));
+    const fs = Math.min(3.1 * k, rh * .58); let y = y0 + 10 * k;
+    g.fillStyle = '#eef0f3'; g.fillRect(x, y, cw, rh);
+    const row = (cells, head) => { let cx = x; T.cols.forEach(([, f], j) => { g.fillStyle = head ? LIGHT.muted : LIGHT.ink; g.font = `${head ? 600 : 400} ${Math.round(fs)}px ${head ? col.cond : col.sans}`; g.textBaseline = 'middle'; g.fillText(String(cells[j]), cx + 1.5 * k, y + rh / 2, cw * f - 3 * k); cx += cw * f; }); y += rh; g.strokeStyle = '#c7cdd5'; g.lineWidth = .2 * k; g.beginPath(); g.moveTo(x, y); g.lineTo(x + cw, y); g.stroke(); };
+    row(T.cols.map(c => c[0].toUpperCase()), true);
+    if (!T.rows.length) { g.fillStyle = LIGHT.muted; g.font = `${Math.round(fs)}px ${col.sans}`; g.fillText('None yet', x + 1.5 * k, y + rh / 2); }
+    for (const rw of T.rows) { if (y + rh > y0 + ah) break; row(rw, false); }
+  });
+}
+function scheduleCSV() {
+  const d = scheduleData(), q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  return [d.open, d.rooms].map(T => [T.title, T.cols.map(c => q(c[0])).join(','), ...T.rows.map(r => r.map(q).join(','))].join('\n')).join('\n\n') + '\n';
+}
+let jspdfP = null;
+function loadJsPDF() {
+  return jspdfP || (jspdfP = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = () => window.jspdf ? res(window.jspdf.jsPDF) : rej(new Error('no jspdf')); s.onerror = () => { jspdfP = null; rej(new Error('load')); }; document.head.append(s);
+  }));
+}
+const dlP = window.claude && window.claude.use ? window.claude.use('downloads').then(d => d || null, () => null) : Promise.resolve(null);
+async function saveFile(filename, blob) {
+  const dl = await dlP;
+  if (dl) {
+    try { await dl.save({ filename, data: blob }); toast('Saved ' + filename); }
+    catch (e) { toast(e && e.code === 'declined' ? 'Download cancelled' : e && e.code === 'rate_limited' ? 'A save is already open. Try again in a moment' : 'Saving files is not available in this view'); }
+    return;
+  }
+  const a = document.createElement('a'), u = URL.createObjectURL(blob); a.href = u; a.download = filename; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); toast('Downloading ' + filename);
+}
+function elevZone() {
+  const s = curSec && curSec.startsWith('ie:') ? model.zones.find(z => z.id === curSec.split(':')[1]) : null;
+  if (s) return s; const o = sel && sel.kind === 'zone' ? selObj() : null; if (o) return o;
+  return model.zones.find(z => z.st === curStory) || model.zones[0] || null;
+}
+async function exportDrawings(o) {
+  let items; const base = slug(model.name);
+  if (o.what === 'schedule' && o.fmt === 'csv') { await saveFile(`${base}-schedule.csv`, new Blob([scheduleCSV()], { type: 'text/csv' })); return; }
+  if (o.what === 'plan') items = [{ kind: 'plan', st: curStory }];
+  else if (o.what === 'section') { const s = curSecObj(); if (!s) { toast('Draw a section first'); return; } items = [{ kind: 'section', sec: s }]; }
+  else if (o.what === 'elevs') { const z = elevZone(); if (!z) { toast('Add a zone first'); return; } items = [{ kind: 'elevs', zone: z }]; }
+  else if (o.what === 'schedule') items = [{ kind: 'schedule' }];
+  else {
+    items = stories().filter(s => hasContent(s.id)).map(s => ({ kind: 'plan', st: s.id })).concat(model.sections.map(s => ({ kind: 'section', sec: s })));
+    if (model.openings.length || model.zones.length) items.push({ kind: 'schedule' });
+    if (!items.length) items = [{ kind: 'plan', st: curStory }];
+  }
+  const sheets = items.map((it, i) => composeSheet(it, o.scale, i + 1, items.length));
+  if (o.fmt === 'png') {
+    const sh = sheets[0], blob = await new Promise(r => sh.canvas.toBlob(r, 'image/png'));
+    await saveFile(`${base}-${slug(sh.title)}.png`, blob); return;
+  }
+  const J = await loadJsPDF();
+  const first = sheets[0].sheet, doc = new J({ orientation: 'l', unit: 'mm', format: [first.W, first.H], compress: true });
+  sheets.forEach((sh, i) => { if (i) doc.addPage([sh.sheet.W, sh.sheet.H], 'l'); doc.addImage(sh.canvas, 'PNG', 0, 0, sh.sheet.W, sh.sheet.H, undefined, 'FAST'); });
+  doc.setProperties({ title: `${model.name} drawings`, creator: 'Pocket BIM' });
+  await saveFile(o.what === 'set' ? `${base}-drawings.pdf` : `${base}-${slug(sheets[0].title)}.pdf`, doc.output('blob'));
+}
+function openExport(preset) {
+  const st = { what: preset || (viewMode === 'section' && curSecObj() ? (curSec && curSec.startsWith('ie:') ? 'elevs' : 'section') : 'plan'), fmt: 'pdf', scale: opts.scale };
+  const render = () => {
+    const sec = curSecObj(), hasSec = !!(sec && !sec.room) || model.sections.length > 0, z = elevZone();
+    if (st.what === 'section' && !hasSec) st.what = 'plan'; if (st.what === 'elevs' && !z) st.what = 'plan';
+    if (st.fmt === 'csv' && st.what !== 'schedule') st.fmt = 'pdf'; if (st.fmt === 'png' && st.what === 'set') st.fmt = 'pdf';
+    const seg = (key, list) => `<div class="segm" data-g="${key}">${list.map(([v, l, dis]) => `<button type="button" data-v="${v}" aria-pressed="${String(st[key]) === String(v)}"${dis ? ' disabled' : ''}>${l}</button>`).join('')}</div>`;
+    const realSec = sec && !sec.room ? sec : model.sections[0], nPlans = stories().filter(s => hasContent(s.id)).length;
+    const info = {
+      plan: `${esc(storyLabel(storyOf(curStory)))} on one sheet with a title block, north arrow and scale bar.`,
+      section: realSec ? `${esc(secTitle(realSec))} with story levels, on one sheet.` : '',
+      elevs: z ? `The four walls of ${esc(z.num || '')} ${esc(z.name)} on one sheet. Pick another room by selecting its zone first.` : '',
+      schedule: 'Doors, windows (with their tags) and rooms with finishes. CSV opens in Excel or Numbers.',
+      set: `${nPlans + model.sections.length + 1} sheets in one PDF: ${nPlans} plan${nPlans === 1 ? '' : 's'}, ${model.sections.length} section${model.sections.length === 1 ? '' : 's'} and the schedule.`
+    }[st.what];
+    openDialog('Export drawings', 'export', `<h5>Drawing</h5>${seg('what', [['plan', 'This plan'], ['section', 'Section', !hasSec], ['elevs', 'Room elevations', !z], ['schedule', 'Schedule'], ['set', 'Full set']])}
+      <h5>Format</h5>${seg('fmt', [['pdf', 'PDF'], ['png', 'PNG', st.what === 'set'], ['csv', 'CSV', st.what !== 'schedule']])}
+      ${st.what === 'schedule' ? '' : `<h5>Scale</h5>${seg('scale', [[50, '1:50'], [100, '1:100'], [200, '1:200']])}`}
+      <p class="intro">${info}${st.what === 'schedule' ? '' : ' The sheet size (A4 to A1) is picked to fit; if the drawing is too big for A1, the scale steps down.'}</p>`,
+      [['Export', true, async () => { closeDialog(); toast('Preparing…'); try { if (st.what === 'section' && sec && sec.room) curSec = realSec.id; await exportDrawings(st); } catch (e) { toast(e && e.message === 'load' ? 'Could not load the PDF tool. Try PNG, or check your connection' : 'Export failed. Try again'); } }]]);
+    $('#dlg').querySelectorAll('[data-g]').forEach(gr => gr.onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; st[gr.dataset.g] = gr.dataset.g === 'scale' ? Number(b.dataset.v) : b.dataset.v; render(); });
+  };
+  render();
+}
+
+/* ================= checks: typical minimums, not a code check ================= */
+const ROOM_MIN = [[/master/i, 12, 2.8], [/bed|sleep|guest/i, 9, 2.4], [/bath|shower/i, 3.5, 1.5], [/\bwc\b|toilet|powder/i, 1.2, .9], [/kitchen/i, 5, 1.8], [/living|lounge|family/i, 14, 3], [/office|study/i, 6, 2.1], [/dining/i, 8, 2.4]];
+const NO_DAYLIGHT = /bath|\bwc\b|toilet|hall|corridor|storage|store|pantry|closet|laundry|utility|stair|garage|technical|shower|powder|wardrobe/i;
+let chkCache = { v: -1, list: [] };
+function runChecks() {
+  if (chkCache.v === ver) return chkCache.list;
+  const out = [], ids = openingIds();
+  for (const z of model.zones) {
+    if (!storyOf(z.st)) continue; const A = z.w * z.h, rule = ROOM_MIN.find(r => r[0].test(z.name)), nm = `${z.num || ''} ${z.name}`.trim();
+    if (rule && A < rule[1]) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${nm}: ${fmt(A)} m², under the usual ${rule[1]} m²` });
+    if (rule && Math.min(z.w, z.h) < rule[2]) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${nm}: narrowest side ${fmt(Math.min(z.w, z.h))} m, under ${fmt(rule[2])} m` });
+    if (!NO_DAYLIGHT.test(z.name)) {
+      let gl = 0;
+      for (const o of model.openings) {
+        if (o.type !== 'window') continue; const w = wallById(o.wid); if (!w || w.st !== z.st) continue;
+        const g = wgeo(w), p = { x: w.x1 + g.ux * o.pos, y: w.y1 + g.uy * o.pos }, m = w.t / 2 + .15;
+        if (inRect(p, z, m) && !inRect(p, { x: z.x + .15, y: z.y + .15, w: z.w - .3, h: z.h - .3 })) gl += o.w * Math.min(o.h, w.h - o.sill);
+      }
+      if (gl < A / 8) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${nm}: glazing ${fmt(gl)} m² is ${Math.round(gl / A * 100)}% of the floor, under 1/8 (12.5%)` });
+    }
+  }
+  for (const o of model.openings) {
+    if (o.type !== 'door') continue; const w = wallById(o.wid); if (!w) continue; const tag = ids.get(o.id) || 'Door';
+    if (w.t >= .25 && o.w < .9) out.push({ kind: 'opening', id: o.id, st: w.st, msg: `${tag}: entrance door ${fmt(o.w)} m wide, under 0.90 m` });
+    else if (o.w < .8) out.push({ kind: 'opening', id: o.id, st: w.st, msg: `${tag}: door ${fmt(o.w)} m wide, under 0.80 m` });
+  }
+  for (const s of model.stairs) {
+    const st = storyOf(s.st); if (!st) continue; const n = risers(s), rh = st.h / n, go = stairGeo(s).run / n;
+    if (rh > .19) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: risers ${Math.round(rh * 1000)} mm, over 190 mm` });
+    if (go < .25) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: goings ${Math.round(go * 1000)} mm, under 250 mm. Make the run longer` });
+  }
+  chkCache = { v: ver, list: out }; return out;
+}
+const checkMap = () => new Set(runChecks().filter(c => c.kind === 'zone').map(c => c.id));
+function openChecks() {
+  const list = runChecks();
+  openDialog(`Checks · ${list.length}`, 'warn', `<p class="intro">Typical residential minimums: room areas and widths, daylight (glazing at least 1/8 of the floor), door widths, stair risers and goings. They are a first pass, not your local building code.</p>` +
+    (list.length ? `<table class="ztab" style="width:100%;margin:0"><tbody>${list.map((c, i) => `<tr class="zr" data-c="${i}"><td>${esc(storyLabel(storyOf(c.st)).split('.')[0])}</td><td>${esc(c.msg)}</td><td>›</td></tr>`).join('')}</tbody></table>` : '<p class="intro"><b>Nothing to flag.</b></p>'), [['Done', true, closeDialog]]);
+  $('#dlg').querySelectorAll('[data-c]').forEach(r => r.onclick = () => { const c = list[r.dataset.c]; closeDialog(); setView('plan'); goStory(c.st); setTool('select'); sel = { kind: c.kind, id: c.id }; renderInfo(); requestDraw(); });
+}
+function openLayers() {
+  const L = model.layers;
+  openDialog('Layers', 'layers', `<p class="intro">Hidden layers stay hidden on export too, so you can set up each sheet the way you want it.</p><div class="sugs" id="lyr">${Object.keys(LAYER_DEF).map(k => `<button type="button" class="qtog" data-l="${k}" aria-pressed="${!!L[k]}">${LAYER_NAMES[k]}</button>`).join('')}</div>`, [['Done', true, closeDialog]]);
+  $('#lyr').onclick = e => { const b = e.target.closest('[data-l]'); if (!b) return; L[b.dataset.l] = !L[b.dataset.l]; b.setAttribute('aria-pressed', String(L[b.dataset.l])); sel = null; save(); renderChrome(); renderInfo(); requestDraw(); };
+}
+$('#qLayers').onclick = openLayers;
+$('#qChecks').onclick = openChecks;
+
+/* ================= cloud projects & comments =================
+   A cloud project is one shared document (projects/<id>) holding the model; everyone the page is shared with sees the list.
+   Comments are pins under projects/<id>/pins. Last save wins. */
+const cloud = { db: null, user: null, uid: null, canWrite: true, pid: null, rev: 0, name: '', pins: [], unDoc: null, unPins: null, timer: null, state: 'off', remote: false };
+try { const c = JSON.parse(localStorage.getItem('pocketbim.cloud') || 'null'); if (c && c.pid) { cloud.pid = c.pid; cloud.rev = c.rev || 0; } } catch (e) { }
+const saveLink = () => { try { localStorage.setItem('pocketbim.cloud', JSON.stringify(cloud.pid ? { pid: cloud.pid, rev: cloud.rev } : null)); } catch (e) { } };
+function cloudChip() {
+  const b = $('#qCloud'); if (!cloud.db) { b.hidden = true; $('#mCloud').hidden = true; return; }
+  b.hidden = false; $('#mCloud').hidden = false;
+  b.textContent = !cloud.pid ? 'Cloud · off' : cloud.state === 'saving' ? 'Cloud · saving…' : cloud.state === 'error' ? 'Cloud · not saved' : cloud.canWrite ? 'Cloud · synced' : 'Cloud · view only';
+  b.style.color = cloud.state === 'error' ? 'var(--danger)' : cloud.pid ? 'var(--accent)' : '';
+}
+async function cloudInit() {
+  if (!(window.claude && window.claude.use)) return;
+  const [db, user] = await Promise.all([window.claude.use('db').catch(() => null), window.claude.use('user').catch(() => null)]);
+  if (!db) return; cloud.db = db; cloud.user = user;
+  if (user) { try { cloud.uid = await user.id(); const w = await user.can('data.write'); if (w === false) cloud.canWrite = false; } catch (e) { } }
+  cloudChip(); if (cloud.pid) cloudOpen(cloud.pid, true);
+}
+function cloudSubscribe() {
+  if (cloud.unDoc) cloud.unDoc(); if (cloud.unPins) cloud.unPins(); cloud.pins = []; cloud.existed = false;
+  if (!cloud.pid) return;
+  const ref = cloud.db.doc('projects/' + cloud.pid);
+  cloud.unDoc = ref.onSnapshot(snap => {
+    if (!snap.exists) { if (cloud.existed && !snap.metadata.fromCache) { toast('That cloud project was deleted'); cloudUnlink(); } return; }
+    cloud.existed = true; const d = snap.data(); cloud.name = d.name || '';
+    if (typeof d.rev === 'number' && d.rev !== cloud.rev && !snap.metadata.hasPendingWrites) {
+      let m = null; try { m = migrate(JSON.parse(d.json)); } catch (e) { }
+      if (m) {
+        const first = !cloud.seen; cloud.rev = d.rev; saveLink(); cloud.remote = true; pushUndo(); model = m; afterRestore(); cloud.remote = false;
+        if (!first) personName(d.by).then(n => toast(`${n} updated the project`));
+      }
+    }
+    cloud.seen = true; cloudChip();
+  }, () => { cloud.state = 'error'; cloudChip(); });
+  cloud.unPins = ref.collection('pins').onSnapshot(q => { cloud.pins = q.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => (a.at || 0) - (b.at || 0)); requestDraw(); }, () => { });
+}
+async function personName(id) { if (!id || !cloud.user) return 'Someone'; if (id === cloud.uid) return 'You'; try { const p = await cloud.user.profiles([id]); return (p[id] && p[id].name) || 'Someone'; } catch (e) { return 'Someone'; } }
+function cloudOpen(pid, quiet) { cloud.pid = pid; cloud.seen = false; if (!quiet) cloud.rev = -1; saveLink(); cloudSubscribe(); cloudChip(); }
+function cloudUnlink() { if (cloud.unDoc) cloud.unDoc(); if (cloud.unPins) cloud.unPins(); cloud.unDoc = cloud.unPins = null; cloud.pid = null; cloud.pins = []; cloud.state = 'off'; saveLink(); cloudChip(); requestDraw(); }
+async function cloudPush() {
+  if (!cloud.db || !cloud.pid || !cloud.canWrite) return;
+  const json = JSON.stringify(model); if (json.length > 250000) { cloud.state = 'error'; cloudChip(); toast('The project is too large for the cloud (250 KB)'); return; }
+  const rev = Date.now(); cloud.rev = rev; saveLink(); cloud.state = 'saving'; cloudChip();
+  try { await cloud.db.doc('projects/' + cloud.pid).set({ name: model.name, json, rev, updatedAt: rev, by: cloud.uid || '' }); cloud.state = 'ok'; }
+  catch (e) { cloud.state = 'error'; if (e && e.code === 'invalid_argument') { cloud.canWrite = false; toast('You can view this project but not change it'); } else if (e && e.code === 'quota_exceeded') toast('The cloud store is full'); }
+  cloudChip();
+}
+function cloudChanged() { if (!cloud.pid || cloud.remote || !cloud.canWrite) return; clearTimeout(cloud.timer); cloud.state = 'saving'; cloudChip(); cloud.timer = setTimeout(cloudPush, 1200); }
+async function openCloud() {
+  if (!cloud.db) { toast('Cloud projects work when this page is open in Claude'); return; }
+  const linked = !!cloud.pid;
+  openDialog('Cloud projects', 'cloud', `<p class="intro">${linked ? `This project syncs to the cloud as <b>${esc(cloud.name || model.name)}</b>. Every change saves a moment later; the last save wins.` : 'Save this project to the cloud to work on it from any device and to leave comments on the plan.'} People you share this page with (Share menu) find the project in this list.</p>
+    <div class="nacts" style="padding:0">${linked ? `<button class="btn" id="clNow"${cloud.canWrite ? '' : ' disabled'}>Save now</button><button class="btn" id="clOff">Stop syncing</button><button class="btn danger" id="clDel"${cloud.canWrite ? '' : ' disabled'}>Delete from cloud</button>` : `<button class="btn pri" id="clNew"${cloud.canWrite ? '' : ' disabled'}>Save to cloud</button>`}</div>
+    <h5>Projects</h5><div id="clList" class="intro">Loading…</div>`, [['Done', false, closeDialog]]);
+  const nw = $('#clNew'); if (nw) nw.onclick = async () => { cloud.pid = 'p' + Date.now().toString(36) + uid(); cloud.seen = true; cloudSubscribe(); await cloudPush(); if (cloud.state !== 'error') toast('Saved to the cloud'); openCloud(); };
+  const now = $('#clNow'); if (now) now.onclick = () => { clearTimeout(cloud.timer); cloudPush(); };
+  const off = $('#clOff'); if (off) off.onclick = () => { cloudUnlink(); toast('Stopped syncing. The project stays in the cloud'); openCloud(); };
+  const del = $('#clDel'); if (del) del.onclick = async () => { if (!del.dataset.armed) { del.dataset.armed = 1; del.textContent = 'Tap again to delete'; return; } const id = cloud.pid; cloudUnlink(); try { const pins = await cloud.db.collection(`projects/${id}/pins`).get(); for (const d of pins.docs) await cloud.db.doc(`projects/${id}/pins/${d.id}`).delete(); await cloud.db.doc('projects/' + id).delete(); toast('Deleted from the cloud. Your copy here stays'); } catch (e) { toast('Could not delete it'); } openCloud(); };
+  try {
+    const q = await cloud.db.collection('projects').orderBy('updatedAt', 'desc').limit(50).get(), list = $('#clList'); if (!list) return;
+    if (q.empty) { list.textContent = 'No cloud projects yet.'; return; }
+    const ids = [...new Set(q.docs.map(d => d.data().by).filter(Boolean))], ps = cloud.user ? await cloud.user.profiles(ids).catch(() => ({})) : {};
+    list.innerHTML = `<table class="ztab" style="width:100%;margin:0"><tbody>${q.docs.map(d => { const v = d.data(), who = v.by === cloud.uid ? 'you' : (ps[v.by] && ps[v.by].name) || 'someone'; return `<tr class="zr" data-p="${esc(d.id)}"><td>${d.id === cloud.pid ? '●' : ''}</td><td>${esc(v.name || 'Untitled')}<br><small style="color:var(--muted)">saved ${new Date(v.updatedAt || 0).toLocaleString()} by ${esc(who)}</small></td><td>${d.id === cloud.pid ? 'Open' : 'Open ›'}</td></tr>`; }).join('')}</tbody></table>`;
+    list.querySelectorAll('[data-p]').forEach(r => r.onclick = () => { if (r.dataset.p === cloud.pid) { closeDialog(); return; } closeDialog(); cloudOpen(r.dataset.p); toast('Opening cloud project…'); });
+  } catch (e) { const l = $('#clList'); if (l) l.textContent = 'Could not load the list right now.'; }
+}
+// comment pins
+function drawPins(k) {
+  if (EXP.on || !cloud.pid) return;
+  cloud.pins.forEach((pn, i) => {
+    if (pn.st !== curStory) return; const [x, y] = toS(pn.x, pn.y), r = 11;
+    ctx.save(); ctx.fillStyle = colors.accent; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y - 8); ctx.arc(x, y - 8 - r + 2, r, Math.PI * .7, Math.PI * .3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `700 11px ${colors.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), x, y - 8 - r + 2); ctx.restore();
+  });
+}
+function pinAt(p) { if (!cloud.pid) return null; for (const pn of cloud.pins) { if (pn.st !== curStory) continue; const [x, y] = toS(pn.x, pn.y), [sx, sy] = toS(p.x, p.y); if (Math.hypot(sx - x, sy - (y - 17)) < 15) return pn; } return null; }
+function addComment(p) {
+  if (!cloud.db) { toast('Comments work when this page is open in Claude'); return; }
+  if (!cloud.pid) { openDialog('Comments', 'pin', '<p class="intro">Comments are stored with a cloud project, so everyone it is shared with sees them. Save this project to the cloud first.</p>', [['Cloud projects…', true, () => { closeDialog(); openCloud(); }]]); return; }
+  if (!cloud.canWrite) { toast('You can view comments but not add them'); return; }
+  openDialog('Comment', 'pin', `<textarea id="pinTxt" style="min-height:80px" maxlength="500" placeholder="What should change here?"></textarea>`, [['Post', true, async () => {
+    const t = $('#pinTxt').value.trim(); if (!t) return; closeDialog();
+    try { await cloud.db.collection(`projects/${cloud.pid}/pins`).add({ st: curStory, x: r3(p.x), y: r3(p.y), text: t, by: cloud.uid || '', at: Date.now() }); } catch (e) { toast('Could not post the comment'); }
+  }]]);
+  setTimeout(() => { const t = $('#pinTxt'); if (t) t.focus(); }, 50);
+}
+async function openPin(pn) {
+  const who = await personName(pn.by), i = cloud.pins.indexOf(pn) + 1;
+  openDialog(`Comment ${i}`, 'pin', `<p style="margin:0;white-space:pre-wrap;font-size:15px;line-height:1.45">${esc(pn.text)}</p><p class="intro">${esc(who)} · ${new Date(pn.at || 0).toLocaleString()}</p>`,
+    [['Close', true, closeDialog]].concat(cloud.canWrite ? [['Resolve', 'danger', async () => { closeDialog(); try { await cloud.db.doc(`projects/${cloud.pid}/pins/${pn.id}`).delete(); toast('Comment resolved'); } catch (e) { toast('Could not resolve it'); } }]] : []));
+}
+$('#qCloud').onclick = openCloud;
+$('#mCloud').onclick = () => { $('#menu').hidden = true; openCloud(); };
+cloudInit();
+
 /* ================= sizing & keys ================= */
 let fitted = false, framed = false;
 function resizeAll() {
   const dpr = Math.min(devicePixelRatio || 1, 2), w = cv.clientWidth, h = cv.clientHeight;
   if (w && h) { cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); readColors(); if (!fitted) { fitted = true; fitView(); } requestDraw(); }
   if (renderer) { const p = $('#threePane'), pw = p.clientWidth, ph = p.clientHeight; if (pw && ph) { const was = camera.aspect; renderer.setSize(pw, ph); camera.aspect = pw / ph; camera.updateProjectionMatrix(); if (!framed || Math.abs(was - camera.aspect) > .05) { framed = true; frame3(); } request3(); } }
+  const sw = scv.clientWidth, sh = scv.clientHeight;
+  if (sw && sh) { scv.width = sw * dpr; scv.height = sh * dpr; sctx.setTransform(dpr, 0, 0, dpr, 0, 0); requestSec(); }
 }
 new ResizeObserver(resizeAll).observe($('#stage'));
 window.addEventListener('keydown', e => {
@@ -1511,6 +2451,10 @@ Units are metres. Plan coordinates: x grows to the right (east), y grows downwar
 - stairs: rectangle x,y,w,h, dir = n/e/s/w is the direction you walk up. A stair rises to the next story; about 0.28 m of run per riser, so a 3.0 m story needs about 4.2 m of run (allow 3.5 m minimum), width 0.9-1.2.
 - zones (rooms): rectangle x,y,w,h on the inside faces of walls, name, area = w*h. Rooms should have sensible sizes (bedroom 10-16 m2, bath 4-7, living 18-35) and each needs a door.
 - dims: dimension line from (x1,y1) to (x2,y2) with offset off.
+- rails (guard railings, height h) and beams (width w, depth h, top = height of the beam's top above its story) are lines from (x1,y1) to (x2,y2). Put a 1.0 m rail along every open edge of a stair void or balcony.
+- labels: text notes; (x1,y1) is the point the leader points at, (x2,y2) where the text sits (same point = no leader).
+- millwork is furniture of type base (base cabinet 0.6 deep, 0.9 high, worktop), tall (2.2 high) or upper (wall cabinet 0.35 deep, elev 1.45 above the floor), with doors (count) and plinth. Any object can have elev = height above its floor.
+- walls can have fin (render, brick, timber, concrete, stone, tile: the 3D finish); zones can have floor (timber, tile, concrete, stone, carpet) and fin (a text such as "Walls: paint, white").
 - furniture (objects): centre x,y, width w, depth d (back to front), height h, rot = rotation in degrees clockwise on the plan. rot 0 = back faces north (up), front faces south; rot 90 = back faces east; rot 180 = back faces south; rot 270 = back faces west. type is one of: ${Object.entries(FURN).map(([k, v]) => `${k} (${v.label}, ${v.w}x${v.d})`).join(', ')}. Put furniture inside rooms with its back against a wall (centre = wall inside face + d/2), keep 0.6-0.9 m walking space, never block doors or the area a door swings through, and keep beds and sofas out from under the stair.
 
 Reply with ONLY one JSON object, no markdown:
@@ -1526,7 +2470,10 @@ Actions:
 {"op":"add_roof","story":1,"x":-0.5,"y":-0.5,"w":11,"h":9,"shape":"gable","pitch":30,"base":2.8,"ridge":"x"}
 {"op":"add_stair","story":0,"x":0.2,"y":4,"w":1.0,"h":3.6,"dir":"n"}
 {"op":"add_zone","story":0,"x":1,"y":1,"w":3,"h":4,"name":"Kitchen"}
-{"op":"add_dim","story":0,"x1":0,"y1":0,"x2":10,"y2":0,"off":-0.8}
+{"op":"add_dim","story":0,"x1":0,"y1":0,"x2":10,"y2":0,"off":-0.8}   (or {"op":"add_dim","wall":"<wall id>","off":-0.9} for a chain that follows the wall and its openings)
+{"op":"add_rail","story":1,"x1":1.2,"y1":4.3,"x2":1.2,"y2":7.8,"h":1.0}
+{"op":"add_beam","story":0,"x1":0,"y1":5,"x2":6,"y2":5,"w":0.25,"h":0.4,"top":2.8}
+{"op":"add_text","story":0,"x1":3,"y1":2,"x2":4,"y2":1,"text":"Oak worktop"}
 {"op":"add_furniture","story":0,"type":"sofa","x":3,"y":7.4,"rot":180}   (w, d, h are optional; the library size is used when omitted)
 {"op":"copy_story","from":0,"to":1}   (copies walls with openings, columns and zones from one story to another)
 {"op":"update","id":"<id>", ...fields to change, "story": to move it}
@@ -1562,7 +2509,10 @@ function modelForAI() {
     stairs: model.stairs.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 'dir'])),
     zones: model.zones.map(z => ({ ...pick(z, ['id', 'st', 'name', 'num', 'x', 'y', 'w', 'h']), area: r(z.w * z.h) })),
     dims: model.dims.map(d => pick(d, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 'off'])),
-    furniture: model.furniture.map(f => pick(f, ['id', 'st', 'type', 'x', 'y', 'w', 'd', 'h', 'rot'])),
+    furniture: model.furniture.map(f => pick(f, ['id', 'st', 'type', 'x', 'y', 'w', 'd', 'h', 'rot', 'elev', 'doors'])),
+    sections: model.sections.map(s => pick(s, ['id', 'name', 'x1', 'y1', 'x2', 'y2', 'flip', 'depth'])),
+    rails: model.rails.map(o => pick(o, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 'h'])), beams: model.beams.map(o => pick(o, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 'w', 'h', 'top'])),
+    labels: model.labels.map(o => pick(o, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 'text'])),
     selected: sel ? sel.id : null
   });
 }
@@ -1603,10 +2553,15 @@ function applyActions(actions) {
         }
         case 'add_column': { const st = resolveSt(a.story); keep(mk.column(st, num(a.x), num(a.y), a), st); break; }
         case 'add_slab': case 'add_roof': case 'add_stair': case 'add_zone': { const st = resolveSt(a.story), o = mk.rect(a.op.slice(4), st, R(a), a); if (a.ref) refs[a.ref] = o.id; keep(o, st); break; }
-        case 'add_dim': { const st = resolveSt(a.story); keep(mk.dim(st, num(a.x1), num(a.y1), num(a.x2), num(a.y2), a), st); break; }
+        case 'add_dim': {
+          const w = a.wall != null ? wallById(refs[a.wall] || a.wall) : null;
+          if (w) { const d = { id: uid(), st: w.st, wid: w.id, off: num(a.off, w.t / 2 + .7), x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }; model.dims.push(d); keep(d, w.st); break; }
+          const st = resolveSt(a.story); keep(mk.dim(st, num(a.x1), num(a.y1), num(a.x2), num(a.y2), a), st); break;
+        }
+        case 'add_rail': case 'add_beam': case 'add_text': { const st = resolveSt(a.story), kind = { add_rail: 'rail', add_beam: 'beam', add_text: 'label' }[a.op]; const o = mk.line(kind, st, num(a.x1), num(a.y1), num(a.x2 ?? a.x1), num(a.y2 ?? a.y1), a); if (a.ref) refs[a.ref] = o.id; keep(o, st); break; }
         case 'add_furniture': case 'add_object': {
           if (!FURN[a.type]) throw new Error('unknown type');
-          const st = resolveSt(a.story), c = FURN[a.type], o = mk.furn(st, num(a.x), num(a.y), { type: a.type, w: num(a.w, c.w), d: num(a.d, c.d), h: num(a.h, c.h), rot: num(a.rot, 0) });
+          const st = resolveSt(a.story), c = FURN[a.type], o = mk.furn(st, num(a.x), num(a.y), { type: a.type, w: num(a.w, c.w), d: num(a.d, c.d), h: num(a.h, c.h), rot: num(a.rot, 0), elev: a.elev, doors: a.doors, plinth: a.plinth });
           if (a.ref) refs[a.ref] = o.id; keep(o, st); break;
         }
         case 'copy_story': {
