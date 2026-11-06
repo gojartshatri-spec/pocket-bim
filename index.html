@@ -328,6 +328,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button id="mWallTypes">Wall types and U-values…</button>
     <button id="mQto">Quantities and cost…</button>
     <button id="mUnder">Underlay image…</button>
+    <button id="mPhoto">Photo to plan…</button>
     <button id="mExport">Export drawings (PDF, PNG, CSV)…</button>
     <button id="mCloud" hidden>Cloud projects…</button>
   </div>
@@ -1112,6 +1113,7 @@ $('#mExport').onclick = () => { $('#menu').hidden = true; openExport(); };
 $('#mWallTypes').onclick = () => openWallTypes();
 $('#mQto').onclick = () => openQto();
 $('#mUnder').onclick = () => openUnderlay();
+$('#mPhoto').onclick = () => openPhotoPlan();
 $('#qPhase').onclick = () => openPhase();
 function openDialog(title, ic, body, actions = []) {
   const d = $('#dlg');
@@ -3265,6 +3267,75 @@ function openUnderlay() {
   $('#ulLock').onclick = () => { pushUndo(); u.lock = !u.lock; changed(); openUnderlay(); };
   $('#ulCal').onclick = () => { closeDialog(); u.lock = false; setTool('calib'); toast('Drag over a distance you know on the image'); };
   $('#ulDel').onclick = () => { pushUndo(); model.underlays = model.underlays.filter(x => x !== u); closeDialog(); changed(); toast('Underlay removed. Undo brings it back'); };
+}
+// ---------- Photo to plan: Claude reads a sketch or scan and returns walls, openings and rooms in image pixels ----------
+async function photoBlob(file) {
+  const src = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(rd.result); rd.onerror = rej; rd.readAsDataURL(file); });
+  const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  const M = 1600, k = Math.min(1, M / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', .85));
+  return { blob, w: c.width, h: c.height, url: c.toDataURL('image/jpeg', .78) };
+}
+const PHOTO_PROMPT = (W, H) => `The image is a photo or scan of an architectural floor plan: a hand sketch, a printed plan or a CAD drawing. It is ${W} × ${H} pixels, origin at the top-left, x to the right, y down.
+Trace the building. Return JSON only, in this shape:
+{"kind":"sketch"|"printed"|"cad","scale_m_per_px":number|null,"wall_thickness_px":number,"walls":[[x1,y1,x2,y2]],"openings":[{"wall":0,"type":"door"|"window","t":0.5,"w_px":40}],"rooms":[{"name":"Kitchen","x":120,"y":340}],"notes":"one short sentence"}
+Rules:
+- walls: every wall, exterior and interior, as straight segments along the wall's centre line, in image pixels. Split a wall where another wall meets it or where it changes direction. Make lines that are meant to be straight, horizontal or vertical exactly so, and make corners meet at exactly the same point. Curved walls: several short segments.
+- Ignore furniture, fixtures, text, hatching, dimension lines, grid lines, north arrows and the paper edge.
+- openings: doors (gaps with a swing arc or a leaf) and windows (thin lines or triple lines across a wall). "wall" is the index into walls, "t" the position of the opening's centre along that wall from its first point (0 to 1), "w_px" its width.
+- rooms: the label written in each room (or a sensible name like "Room" if none), with a point inside the room.
+- scale_m_per_px: only if you can read at least one dimension number on the drawing and see what it measures; otherwise null. Dimensions in mm (e.g. 4200) or cm must be converted to metres.
+- Be precise: positions are used to build a BIM model.`;
+function photoToModel(res, img, opts) {
+  const W = (res.walls || []).filter(q => Array.isArray(q) && q.length >= 4 && q.slice(0, 4).every(Number.isFinite));
+  if (!W.length) throw new Error('no walls');
+  const xs = W.flatMap(q => [q[0], q[2]]), ys = W.flatMap(q => [q[1], q[3]]), bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+  const doors = (res.openings || []).filter(o => o && o.type === 'door' && o.w_px > 0);
+  let s, how;
+  if (opts.width > 0) { s = opts.width / Math.max(1, bw); how = `overall width ${fmt(opts.width)} m`; }
+  else if (res.scale_m_per_px > 0) { s = res.scale_m_per_px; how = 'a dimension on the drawing'; }
+  else if (doors.length) { const med = doors.map(o => o.w_px).sort((a, b) => a - b)[Math.floor(doors.length / 2)]; s = .9 / med; how = 'door widths (about 0.90 m)'; }
+  else { s = 12 / Math.max(1, bw, bh); how = 'a guess (12 m across)'; }
+  const ex = storyBounds(curStory), ox = ex ? ex.x + ex.w + 3 : 0, oy = ex ? ex.y : 0, x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const T = ([x, y]) => [ox + (x - x0) * s, oy + (y - y0) * s];
+  // straighten near-orthogonal walls and weld ends that almost meet
+  let seg = W.map(q => [T([q[0], q[1]]), T([q[2], q[3]])]).map(([a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 180; if (ang < 4 || ang > 176) { const y = (a[1] + b[1]) / 2; return [[a[0], y], [b[0], y]]; } if (Math.abs(ang - 90) < 4) { const x = (a[0] + b[0]) / 2; return [[x, a[1]], [x, b[1]]]; } return [a, b]; });
+  const pts = seg.flat(), tol = Math.max(.12, Math.min(.3, .02 * Math.max(bw, bh) * s));
+  for (const k of [0, 1]) { const v = pts.map((q, i) => [q[k], i]).sort((a, b) => a[0] - b[0]); let g = []; const flush = () => { if (!g.length) return; const m = r3(Math.round(g.reduce((a, [x]) => a + x, 0) / g.length * 100) / 100); for (const [, i] of g) pts[i][k] = m; g = []; }; for (const it of v) { if (g.length && it[0] - g[g.length - 1][0] > tol) flush(); g.push(it); } flush(); }
+  const t = Math.min(.5, Math.max(.1, opts.t > 0 ? opts.t : (res.wall_thickness_px > 0 ? res.wall_thickness_px * s : .25)));
+  const grp = uid(), made = [], idx = new Map(); let nd = 0, nw = 0, nz = 0;
+  seg.forEach(([a, b], i) => { if (Math.hypot(b[0] - a[0], b[1] - a[1]) < .2) return; try { const w = mk.wall(curStory, a[0], a[1], b[0], b[1], { t }); w.grp = grp; made.push(w); idx.set(i, w); } catch (e) { } });
+  for (const o of res.openings || []) { const w = idx.get(o && o.wall); if (!w || !(o.t >= 0 && o.t <= 1)) continue; const L = wlen(w), ow = Math.min(L - .1, Math.max(.4, (o.w_px || 0) * s || (o.type === 'door' ? .9 : 1.2))); if (ow < .3) continue; try { mk.opening(w, o.type === 'door' ? 'door' : 'window', r3(Math.min(L - ow / 2, Math.max(ow / 2, o.t * L))), { w: r3(ow) }); o.type === 'door' ? nd++ : nw++; } catch (e) { } }
+  for (const r of res.rooms || []) { if (!r || !Number.isFinite(r.x) || !Number.isFinite(r.y)) continue; const [x, y] = T([r.x, r.y]), mr = magicRect({ x, y }); if (!mr || mr.w * mr.h > 400 || model.zones.some(z => z.st === curStory && inShape({ x, y }, z))) continue; try { mk.rect('zone', curStory, mr, { name: String(r.name || 'Room').slice(0, 40) }); nz++; } catch (e) { } }
+  if (opts.underlay) { const id = uid(); try { localStorage.setItem(ULKEY + id, img.url); model.underlays = model.underlays.filter(u => u.st !== curStory); model.underlays.push({ id, st: curStory, x: r3(ox - x0 * s), y: r3(oy - y0 * s), w: r3(img.w * s), h: r3(img.h * s), op: .35, lock: true }); } catch (e) { } }
+  return { walls: made.length, doors: nd, windows: nw, rooms: nz, how, notes: res.notes };
+}
+function openPhotoPlan() {
+  $('#menu').hidden = true;
+  openDialog('Photo to plan', 'underlay', `<p class="intro">Take a photo of a sketch, or pick a scan or a printed plan. Claude traces its walls, doors, windows and rooms onto this story, next to anything already drawn. All of it is one group: move it, check it against the photo, and Undo removes it.</p>
+    <div class="dgrid"><label class="fld" for="ppW"><span>Overall width, if known</span><span class="fin"><input id="ppW" type="text" inputmode="decimal" placeholder="auto"><i>m</i></span></label>
+    <label class="fld" for="ppT"><span>Wall thickness</span><span class="fin"><input id="ppT" type="text" inputmode="decimal" placeholder="auto"><i>m</i></span></label></div>
+    <div class="sugs"><button type="button" class="qtog" id="ppUl" aria-pressed="true">Keep photo as underlay</button></div>
+    <p class="intro" id="ppMsg"></p><input type="file" id="ppFile" accept="image/*" hidden>`, [['Choose photo…', true, () => $('#ppFile').click()]]);
+  const msg = $('#ppMsg'), ul = $('#ppUl'); ul.onclick = () => ul.setAttribute('aria-pressed', String(ul.getAttribute('aria-pressed') !== 'true'));
+  $('#ppFile').onchange = async () => {
+    const f = $('#ppFile').files[0]; if (!f) return;
+    const caps = sampleFn ? await sampleFn.limits().catch(() => null) : null;
+    if (!caps || !caps.images) { msg.textContent = 'Photo to plan needs Claude: open this page in claude.ai or the Claude app and allow it to send images. Until then you can trace the photo yourself as an underlay.'; return; }
+    const num = id => { const v = parseFloat(String($(id).value).replace(',', '.')); return v > 0 ? v : 0; }, opts = { width: num('#ppW'), t: num('#ppT'), underlay: ul.getAttribute('aria-pressed') === 'true' };
+    const btn = document.querySelector('#dlg [data-a]'); if (btn) btn.disabled = true;
+    try {
+      msg.textContent = 'Preparing the photo…'; const img = await photoBlob(f);
+      msg.textContent = 'Claude is reading the plan. This takes 20–60 seconds…';
+      const res = await sampleFn.json(PHOTO_PROMPT(img.w, img.h), { images: [img.blob], modelTier: 'complex', cache: false });
+      pushUndo(); const r = photoToModel(res, img, opts); changed(); closeDialog(); fitView();
+      const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`; toast(`${pl(r.walls, 'wall')}, ${pl(r.doors, 'door')}, ${pl(r.windows, 'window')}, ${pl(r.rooms, 'room')}. Scale from ${r.how}`);
+    } catch (e) {
+      const c = e && e.code; msg.textContent = c === 'not_granted' ? 'Claude was not allowed to read the photo.' : c === 'rate_limited' ? 'Too many requests just now. Try again in a minute.' : c === 'image_rejected' ? 'That image could not be sent. Try a JPG or PNG.' : e && e.message === 'no walls' ? 'No walls found. Try a sharper photo, straight on, with good light.' : 'Could not read the plan. Try again, or a clearer photo.';
+      if (btn) btn.disabled = false;
+    }
+  };
 }
 function loadUnderlay(file, old) {
   const rd = new FileReader();
