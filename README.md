@@ -35,6 +35,10 @@ A lite ArchiCAD for phones: floor plans with walls, doors, windows, columns, bea
 - **Roofs:** mansard and barrel roofs, dormers, gutters with downpipes, and fascia boards.
 - **Footings:** strip footings drawn or added under every wall of a story in one tap, with concrete volumes.
 - **Photo to plan:** photograph a sketch or pick a scan; Claude traces walls, doors, windows and rooms onto the story as one group, scaled from a width you give, a dimension on the drawing or the door widths (works when opened in Claude).
+- **Analysis:** energy estimate (heat loss, peak load, kWh/m² and an indicative class) with daylight factor per room; area schedule (GIA / NIA); embodied carbon; accessibility, clash and fire-escape checks.
+- **Generators:** kitchen runs along a wall, railings on a slab's open edges, parking layouts; trees, shrubs and cars.
+- **Sheets:** project number, client, revisions table and sheet numbers in the title block; 1:20 and 1:5 scales; smart labels like {name} {area}.
+- **More:** versions you can save, compare and restore; PDF underlays; sun study that plays a day, with city latitudes; ceilings in 3D; stylus mode; keyboard shortcuts (press ?).
 - **IFC:** export the whole model as IFC 4 (stories, walls with U-values, openings that cut their walls, slabs, gable and shed roofs, rooms, stairs, columns, beams, railings, objects) and import walls, slabs, roofs, rooms, columns, doors and windows from IFC.
 - **Hand-off:** DXF (R12) plan export with CAD layers, saved 3D views, 3D image (PNG), GLB model, and AR on ARCore phones.
 
