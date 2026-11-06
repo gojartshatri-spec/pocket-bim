@@ -324,6 +324,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button id="mCopy">Copy project as JSON</button>
     <button id="mImport">Import project JSON…</button>
     <button id="mIfcImport">Import IFC (BIM)…</button>
+    <button id="mDxfImport">Import DXF as walls…</button>
     <hr>
     <button id="mWallTypes">Wall types and U-values…</button>
     <button id="mQto">Quantities and cost…</button>
@@ -348,7 +349,7 @@ const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 const r3 = v => Math.round(v * 1000) / 1000;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KEY = 'pocketbim.v2', OLDKEY = 'pocketbim.v1';
-const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', ramp: 'ramps', shaft: 'shafts', dormer: 'dormers', footing: 'footings', zone: 'zones', dim: 'dims', furn: 'furniture', section: 'sections', rail: 'rails', beam: 'beams', label: 'labels', grid: 'grids', site: 'sites', underlay: 'underlays', fix: 'fixtures', sky: 'skylights' };
+const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', ramp: 'ramps', shaft: 'shafts', dormer: 'dormers', footing: 'footings', morph: 'morphs', pipe: 'pipes', contour: 'contours', zone: 'zones', dim: 'dims', furn: 'furniture', section: 'sections', rail: 'rails', beam: 'beams', label: 'labels', grid: 'grids', site: 'sites', underlay: 'underlays', fix: 'fixtures', sky: 'skylights' };
 const DOOR_STYLES = { single: 'Single swing', double: 'Double swing', sliding: 'Sliding', pocket: 'Pocket', opening: 'Opening (no leaf)', arch: 'Arched opening' };
 const WIN_STYLES = { casement: 'Casement', tilt: 'Tilt & turn', sliding: 'Sliding', fixed: 'Fixed', niche: 'Niche (recess)' };
 const CEILT = { plaster: 'Plaster', gypsum: 'Gypsum board', acoustic: 'Acoustic tiles 600×600', timber: 'Timber slats', exposed: 'Exposed concrete' };
@@ -359,7 +360,7 @@ const GLOBALK = new Set(['section', 'grid']); // elements on every story (no st)
 const RENO = { '': 'New', exist: 'Existing', demo: 'Demolish' };
 const PHASES = { all: 'All', exist: 'Existing', demo: 'Demolition', prop: 'Proposed' };
 // Elements drawn from a start point to an end point (x1,y1 → x2,y2): they share the line tool, handles and move logic
-const LINEK = new Set(['dim', 'section', 'rail', 'beam', 'label', 'grid', 'footing']);
+const LINEK = new Set(['dim', 'section', 'rail', 'beam', 'label', 'grid', 'footing', 'pipe', 'contour']);
 const LAYER_DEF = { zones: true, furn: true, mill: true, dims: true, annot: true, struct: true, elec: true };
 const LAYER_NAMES = { zones: 'Zones', furn: 'Furniture', mill: 'Millwork', dims: 'Dimensions', annot: 'Text, tags & markers', struct: 'Columns & beams', elec: 'Lighting & electrical' };
 const FINISHES = { '': 'Core colour', render: 'Render', brick: 'Face brick', timber: 'Timber', concrete: 'Exposed concrete', stone: 'Stone', tile: 'Tile' };
@@ -399,10 +400,10 @@ function wallBands(w) { // [{s0, s1, m}] offsets across the thickness, left (+t/
   const T = wtById(w.wt); if (!T) return null; const L = w.lflip ? T.layers.slice().reverse() : T.layers, tot = wtThick(T) || w.t, k = w.t / tot; let s = w.t / 2; const out = [];
   for (const l of L) { const s1 = s - l.t * k; out.push({ s0: s, s1, m: l.m }); s = s1; } return out;
 }
-const RECT = new Set(['slab', 'roof', 'stair', 'zone', 'site', 'ramp', 'shaft', 'dormer']);
+const RECT = new Set(['slab', 'roof', 'stair', 'zone', 'site', 'ramp', 'shaft', 'dormer', 'morph']);
 const ZONE_COLORS = ['#e3b04b', '#6fa9d6', '#8cbf88', '#d68aa5', '#a79be0', '#e08a5c', '#6cc1b6'];
 const MATS = { brick: 'Brick', block: 'Block', concrete: 'Concrete', gypsum: 'Gypsum board' };
-const NAMES_X = { ramp: 'Ramp', shaft: 'Shaft / slab opening', dormer: 'Dormer', footing: 'Strip footing', curve: 'Curve', fillet: 'Fillet', fnd: 'Footings', fix: 'Fixture', sky: 'Skylight', grid: 'Grid line', site: 'Site', underlay: 'Underlay', calib: 'Calibrate underlay' };
+const NAMES_X = { morph: 'Morph (free form)', pipe: 'Pipe / duct', contour: 'Contour line', ramp: 'Ramp', shaft: 'Shaft / slab opening', dormer: 'Dormer', footing: 'Strip footing', curve: 'Curve', fillet: 'Fillet', fnd: 'Footings', fix: 'Fixture', sky: 'Skylight', grid: 'Grid line', site: 'Site', underlay: 'Underlay', calib: 'Calibrate underlay' };
 const NAMES = { ...NAMES_X, select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dimension', furn: 'Object', section: 'Section', rail: 'Railing', beam: 'Beam', label: 'Text', mill: 'Millwork', measure: 'Measure', pin: 'Comment' };
 
 const I = {
@@ -436,6 +437,9 @@ const I = {
   section: '<path d="M3 12h18" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 2 1 2"/><path d="M2.5 12h4M17.5 12h4" stroke="currentColor" stroke-width="2.6"/><path d="M3 13.5h4l-2 4z" fill="currentColor"/><path d="M17 13.5h4l-2 4z" fill="currentColor"/><circle cx="5" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/><circle cx="19" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/>',
   open: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>',
   export: '<path d="M12 3v12M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v4h16v-4" stroke="currentColor" stroke-width="1.8"/>',
+  morph: '<path d="M4 18 8 6l8 2 4 10z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 6l2 12" stroke="currentColor" stroke-width="1.1"/>',
+  pipe: '<path d="M3 9h10a4 4 0 0 1 4 4v8" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>',
+  contour: '<path d="M3 17c4-6 8 2 18-4M3 11c5-5 9 1 18-5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
   ramp: '<path d="M3 18h18L3 9z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
   shaft: '<rect x="4" y="4" width="16" height="16" stroke="currentColor" stroke-width="1.7"/><path d="M4 4l16 16M20 4 4 20" stroke="currentColor" stroke-width="1.2"/>',
   dormer: '<path d="M2 20 12 8l10 12" stroke="currentColor" stroke-width="1.5"/><path d="M8 15V11l3-3 3 3v4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
@@ -554,7 +558,7 @@ let curStory = stories()[0].id;
 
 /* ================= state ================= */
 let tool = 'select', sel = null, viewMode = 'plan', chain = null, op = null;
-const POLYK = new Set(['zone', 'slab', 'roof', 'site']);
+const POLYK = new Set(['zone', 'slab', 'roof', 'site', 'morph']);
 let msel = []; // multi-selection: [{kind, id}]
 const opts = { rcp: false, phase: 'all', renoNew: '', multi: false, grid: true, ortho: true, trace: true, all3d: true, scale: 100, sun: { on: false, month: 6, hour: 15, lat: 42.66 } };
 let meas = null; // temporary measurement on the plan (never saved)
@@ -562,7 +566,7 @@ const defaults = {
   wall: { t: .3, h: 2.8, mat: 'brick', method: 'single' }, door: { w: .9, h: 2.1, sill: 0, style: 'single' }, window: { w: 1.2, h: 1.4, sill: .9, style: 'casement' },
   column: { w: .3, d: .3, h: 2.8, round: false }, slab: { t: .25, method: 'rect' }, roof: { pitch: 30, base: 2.8, shape: 'gable', ridge: 'auto', method: 'rect' },
   stair: { w: 1.0 }, zone: { name: 'Room', method: 'rect' }, dim: { off: .6 }, furn: { type: 'sofa', w: 2.0, d: .9, h: .8, rot: 0 }, section: { depth: 20 },
-  rail: { h: 1.0 }, fix: { type: 'downlight', rot: 0 }, sky: { w: .78, h: 1.18 }, grid: {}, site: { setback: 3, north: 0, method: 'rect' }, calib: {}, beam: { w: .25, h: .4, top: 2.8 }, footing: { w: .6, d: .5, top: -.3 }, ramp: { w: 1.2, rise: .45 }, shaft: {}, dormer: { dh: 1.4, face: 's' }, label: { size: 10 }, mill: { type: 'base', w: .6, d: .6, h: .9, doors: 1, plinth: .1, elev: 0, rot: 0 }
+  rail: { h: 1.0 }, fix: { type: 'downlight', rot: 0 }, sky: { w: .78, h: 1.18 }, grid: {}, site: { setback: 3, north: 0, method: 'rect' }, calib: {}, beam: { w: .25, h: .4, top: 2.8 }, footing: { w: .6, d: .5, top: -.3 }, morph: { mh: 1, elev: 0, method: 'rect' }, pipe: { sys: 'drain', d: .11, z: -.3, fall: 2 }, contour: { z: 0 }, ramp: { w: 1.2, rise: .45 }, shaft: {}, dormer: { dh: 1.4, face: 's' }, label: { size: 10 }, mill: { type: 'base', w: .6, d: .6, h: .9, doors: 1, plinth: .1, elev: 0, rot: 0 }
 };
 let curSec = null, ver = 0;
 let undoStack = [], redoStack = [];
@@ -832,6 +836,7 @@ const mk = {
     if (kind === 'slab') o = { ...base, t: num(p.t, d.t) };
     if (kind === 'roof') { const rg = p.ridge === 'x' || p.ridge === 'y' ? p.ridge : (d.ridge === 'x' || d.ridge === 'y' ? d.ridge : (base.w >= base.h ? 'x' : 'y')); o = { ...base, pitch: num(p.pitch, d.pitch), base: num(p.base, d.base), shape: ROOF_SHAPES[p.shape] ? p.shape : d.shape, ridge: rg }; if (o.shape === 'shed') o.up = ['n', 'e', 's', 'w'].includes(p.up) ? p.up : 'n'; if (pts) o.shape = 'flat'; }
     if (kind === 'stair') { o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e') }; if (p.shape === 'L' || p.shape === 'U') { o.shape = p.shape; o.turn = p.turn === 'l' ? 'l' : 'r'; if (num(p.fw, 0) > 0) o.fw = num(p.fw, 1); } }
+    if (kind === 'morph') o = { ...base, mh: Math.max(.05, num(p.mh, d.mh)), elev: num(p.elev, d.elev) };
     if (kind === 'ramp') o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e'), rise: Math.max(.02, num(p.rise, d.rise)) };
     if (kind === 'shaft') { o = { ...base }; if (p.thru === true || p.thru === 'true') o.thru = true; }
     if (kind === 'dormer') o = { ...base, dh: Math.max(.6, num(p.dh, d.dh)), face: ['n', 'e', 's', 'w'].includes(p.face) ? p.face : d.face };
@@ -852,6 +857,8 @@ const mk = {
     if (![o.x1, o.y1, o.x2, o.y2].every(isFinite)) throw new Error('bad');
     if (kind === 'rail') o.h = Math.max(.3, num(p.h, d.h));
     if (kind === 'beam') { o.w = Math.max(.05, num(p.w, d.w)); o.h = Math.max(.05, num(p.h, d.h)); o.top = num(p.top, d.top); }
+    if (kind === 'pipe') { o.sys = PIPE_SYS[p.sys] ? p.sys : d.sys; o.d = Math.max(.015, num(p.d, o.sys === 'duct' || o.sys === 'vent' ? .3 : o.sys === 'drain' ? .11 : .025)); o.z = num(p.z, o.sys === 'drain' ? d.z : 2.6); if (o.sys === 'drain') o.fall = Math.max(0, num(p.fall, d.fall)); }
+    if (kind === 'contour') o.z = num(p.z, d.z);
     if (kind === 'footing') { o.w = Math.max(.1, num(p.w, d.w)); o.d = Math.max(.1, num(p.d, d.d)); o.top = num(p.top, d.top); }
     if (kind === 'label') { o.text = String(p.text || 'Note').slice(0, 80); o.size = Math.min(40, Math.max(6, num(p.size, d.size))); }
     if (kind !== 'label' && Math.hypot(o.x2 - o.x1, o.y2 - o.y1) < .1) throw new Error('short');
@@ -880,6 +887,7 @@ const FS = (key, label, choices, o = {}) => ({ key, label, type: 'select', choic
 const FT = (key, label, o = {}) => ({ key, label, type: 'text', info: true, tmpl: true, ...o });
 const XY = (k, l) => F(k, l, { tmpl: false, info: false, min: -1e4, max: 1e4 });
 const stairW = { get: o => o.dir ? (o.dir === 'n' || o.dir === 's' ? o.w : o.h) : o.w, set: (o, v) => { if (!o.dir) { o.w = v; return; } if (o.dir === 'n' || o.dir === 's') { const c = o.x + o.w / 2; o.w = v; o.x = r3(c - v / 2); } else { const c = o.y + o.h / 2; o.h = v; o.y = r3(c - v / 2); } } };
+const PIPE_SYS = { drain: ['Drainage', '#8a5a2b'], water: ['Cold water', '#2f7fd1'], hot: ['Hot water', '#d1452f'], heat: ['Heating', '#c2410c'], duct: ['Supply air duct', '#5b8c3a'], vent: ['Extract air duct', '#7c5cbf'], gas: ['Gas', '#d4a017'] };
 const FIELDS = {
   wall: [FS('wt', 'Wall type', null, { choicesFn: () => ({ '': 'Basic (one material)', ...Object.fromEntries((model.wallTypes || []).map(t => [t.id, t.name])) }), get: o => o.wt || '', set: (o, v) => { if (!v) { delete o.wt; return; } const T = wtById(v); if (!T) return; o.wt = v; delete o.cw; o.t = wtThick(T); const core = T.layers.filter(l => MATS[l.m]).sort((a, b) => b.t - a.t)[0]; if (core) o.mat = core.m; } }),
     FS('cw', 'Facade', { '': 'Solid wall', 1: 'Curtain wall' }, { tmpl: false, get: o => o.cw ? '1' : '', set: (o, v) => { if (v) { o.cw = 1; delete o.wt; o.t = .12; o.cwx = o.cwx || 1.5; o.cwz = o.cwz || 1; } else delete o.cw; } }),
@@ -936,10 +944,16 @@ Object.assign(FIELDS, {
   shaft: [FS('thru', 'Cuts slabs', { false: 'On this story', true: 'This story and all above' }, { get: o => String(!!o.thru), set: (o, v) => { if (v === 'true') o.thru = true; else delete o.thru; } }), F('w', 'Width', { tmpl: false }), F('h', 'Depth', { tmpl: false }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: o => o.w * o.h }), XY('x', 'Left x'), XY('y', 'Top y')],
   dormer: [F('dh', 'Wall height', { min: .6, max: 4 }), FS('face', 'Window faces', { n: 'North ↑', e: 'East →', s: 'South ↓', w: 'West ←' }), F('w', 'Width', { tmpl: false }), F('h', 'Depth', { tmpl: false }), XY('x', 'Left x'), XY('y', 'Top y')]
 });
+Object.assign(FIELDS, {
+  morph: [F('mh', 'Height', { min: .02, max: 100 }), F('elev', 'Base above floor', { min: -20, max: 100 }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: areaOf }), F('w', 'Width', { tmpl: false, when: o => !o.pts }), F('h', 'Depth', { tmpl: false, when: o => !o.pts }), XY('x', 'Left x'), XY('y', 'Top y')],
+  pipe: [FS('sys', 'System', Object.fromEntries(Object.entries(PIPE_SYS).map(([k, v]) => [k, v[0]]))), F('d', 'Size (Ø or width)', { min: .01, max: 2 }), F('z', 'Height at start', { min: -6, max: 30 }), F('fall', 'Fall', { unit: '%', dec: 1, step: .5, min: 0, max: 20, when: o => o.sys === 'drain', get: o => o.fall || 0 }), F('len', 'Length', { tmpl: false, ro: true, get: o => Math.hypot(o.x2 - o.x1, o.y2 - o.y1) })],
+  contour: [F('z', 'Elevation', { min: -1000, max: 9000 })]
+});
+FIELDS.fix.push(FS('cir', 'Circuit', { '': '—', L1: 'L1 lighting', L2: 'L2 lighting', L3: 'L3 lighting', S1: 'S1 sockets', S2: 'S2 sockets', S3: 'S3 sockets', K1: 'K1 kitchen', AC: 'AC', D1: 'D1 data' }, { tmpl: false, get: o => o.cir || '', set: (o, v) => { if (v) o.cir = v; else delete o.cir; } }));
 FIELDS.window.push(F('nd', 'Niche depth', { tmpl: false, min: .03, max: 1, when: o => o.style === 'niche', get: o => o.nd ?? .15 }));
 FIELDS.roof.push(F('pitch2', 'Upper pitch', { unit: '°', dec: 0, step: 1, min: 0, max: 60, tmpl: false, when: o => o.shape === 'mansard', get: o => o.pitch2 ?? 15 }), F('mb', 'Break inset', { tmpl: false, min: .2, max: 5, when: o => o.shape === 'mansard', get: o => o.mb ?? .9 }),
   FS('gut', 'Gutters', { '': 'None', 1: 'Gutters and downpipes' }, { tmpl: false, when: o => !o.pts, get: o => o.gut ? '1' : '', set: (o, v) => { if (v) o.gut = 1; else delete o.gut; } }), F('fas', 'Fascia depth', { tmpl: false, min: 0, max: .6, when: o => !o.pts, get: o => o.fas || 0 }));
-for (const k of ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'rail', 'door', 'window', 'furn', 'mill', 'footing', 'ramp', 'dormer']) FIELDS[k].push(FS('reno', 'Status', RENO, { tmpl: false, info: false, get: o => o.reno || '', set: (o, v) => { if (v) o.reno = v; else delete o.reno; } }));
+for (const k of ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'rail', 'door', 'window', 'furn', 'mill', 'footing', 'ramp', 'dormer', 'morph', 'pipe']) FIELDS[k].push(FS('reno', 'Status', RENO, { tmpl: false, info: false, get: o => o.reno || '', set: (o, v) => { if (v) o.reno = v; else delete o.reno; } }));
 const fget = (f, o) => f.get ? f.get(o) : o[f.key];
 function fset(f, o, v) { if (f.set) f.set(o, v); else o[f.key] = v; }
 function fieldHTML(f, o, pre) {
@@ -970,15 +984,22 @@ function bindFields(root, ctxInfo) {
 }
 
 /* ================= chrome: toolbox, info box, quick options, tabs ================= */
-const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'ramp', 'rail', 'door', 'window', 'sky', 'dormer', 'shaft', 'footing', 'furn', 'mill', 'fix']], ['Document', ['zone', 'dim', 'label', 'section', 'grid', 'site', 'measure', 'pin']]];
-const SHORT = { ramp: 'Ramp', shaft: 'Shaft', dormer: 'Dormer', footing: 'Footing', sky: 'Skylight', fix: 'Fixture', grid: 'Grid', site: 'Site', select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object', section: 'Section', beam: 'Beam', rail: 'Railing', mill: 'Millwork', label: 'Text', measure: 'Measure', pin: 'Comment' };
-$('#toolbox').innerHTML = TOOLGROUPS.map(([g, ts]) => `<h6>${g}</h6>` + ts.map(t => `<button class="tool" data-tool="${t}" aria-pressed="false" aria-label="${NAMES[t]} tool">${icon(t)}${SHORT[t]}</button>`).join('')).join('');
+const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'ramp', 'rail', 'door', 'window', 'sky', 'dormer', 'shaft', 'footing', 'morph', 'pipe', 'furn', 'mill', 'fix']], ['Document', ['zone', 'dim', 'label', 'section', 'grid', 'site', 'contour', 'measure', 'pin']]];
+const SHORT = { morph: 'Morph', pipe: 'Pipe', contour: 'Contour', ramp: 'Ramp', shaft: 'Shaft', dormer: 'Dormer', footing: 'Footing', sky: 'Skylight', fix: 'Fixture', grid: 'Grid', site: 'Site', select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object', section: 'Section', beam: 'Beam', rail: 'Railing', mill: 'Millwork', label: 'Text', measure: 'Measure', pin: 'Comment' };
+// toolbar: hide tools you do not use (kept on this device)
+const TBKEY = 'pocketbim.hiddenTools'; let hiddenTools = new Set(); try { hiddenTools = new Set(JSON.parse(localStorage.getItem(TBKEY) || '[]')); } catch (e) { }
+function renderToolbox() { $('#toolbox').innerHTML = TOOLGROUPS.map(([g, ts]) => `<h6>${g}</h6>` + ts.filter(t => t === 'select' || !hiddenTools.has(t)).map(t => `<button class="tool" data-tool="${t}" aria-pressed="${(() => { try { return tool === t; } catch (e) { return false; } })()}" aria-label="${NAMES[t]} tool">${icon(t)}${SHORT[t]}</button>`).join('')).join(''); }
+// pen sets: line weight factor for plans and sheets
+const PENS = { fine: ['Fine', .7], std: ['Standard', 1], bold: ['Bold', 1.45] }; let penSet = 'std'; try { penSet = localStorage.getItem('pocketbim.pens') || 'std'; } catch (e) { }
+const penK = () => (PENS[penSet] || PENS.std)[1];
+renderToolbox();
 $('#toolbox').onclick = e => { const b = e.target.closest('.tool'); if (b) setTool(b.dataset.tool); };
 const HINTS = {
   select: 'Tap an element to select it. Drag a selected element to move it. Drag empty space to pan.',
   wall: '', column: 'Tap to place a column.', slab: 'Drag a rectangle, or tap to cover the whole story.',
   roof: 'Drag a rectangle, or tap to roof the whole story.', stair: 'Drag in the walking direction, or tap to place.',
   door: 'Tap a wall to place a door.', window: 'Tap a wall to place a window.', furn: 'Tap to place. Near a wall it turns its back to the wall.', zone: 'Tap inside a room, or drag a rectangle.', dim: 'Tap a wall to dimension its whole run (it follows the wall), or drag between two points.',
+  morph: 'Drag a rectangle or draw a polygon: a free-form block. Set its height and how high it sits.', pipe: 'Drag along the run. Pick the system; drains get a fall that the checks test.', contour: 'Drag along a contour and set its level. The site terrain is built from them; Analysis gives cut and fill.',
   ramp: 'Drag in the walking direction (uphill). Set the rise here; the slope is checked against 1:12.', shaft: 'Drag a rectangle: it cuts the slab on this story, or on all stories above too.', dormer: 'Drag a rectangle on a pitched roof. Set which side the window faces.', footing: 'Drag along a wall line. Or select a wall and tap Footings to put one under every wall on the story.',
   beam: 'Drag along the beam. Plans show it dashed, as overhead.', rail: 'Drag along the edge you want to guard.',
   mill: 'Tap near a wall: the cabinet turns its back to it. Set doors, plinth and height above floor here.',
@@ -1113,6 +1134,7 @@ $('#mImport').onclick = () => {
     [['Import', true, () => { try { const m = migrate(JSON.parse($('#impTxt').value)); if (!m) throw 0; closeDialog(); replaceModel(m, 'Project imported'); } catch (e) { toast('That text is not a Pocket BIM project'); } }]]);
 };
 $('#mIfcImport').onclick = openIfcImport;
+$('#mDxfImport').onclick = openDxfImport;
 $('#mExport').onclick = () => { $('#menu').hidden = true; openExport(); };
 $('#mWallTypes').onclick = () => openWallTypes();
 $('#mQto').onclick = () => openQto();
@@ -1440,7 +1462,7 @@ const EXP = { on: false, W: 0, H: 0 };
 function draw() {
   drawReq = false;
   const W = EXP.on ? EXP.W : cv.clientWidth, H = EXP.on ? EXP.H : cv.clientHeight; if (!W || !H) return;
-  const s = view.s, st = curStory, k = ann(), lw = Math.max(.8, Math.min(1.8, s / 35));
+  const s = view.s, st = curStory, k = ann(), lw = Math.max(.8, Math.min(1.8, s / 35)) * penK();
   const E = kind => model[LISTS[kind]].filter(o => o.st === st && phaseVis(o));
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, W, H);
   if (!EXP.on) for (const u of model.underlays) if (u.st === st) { const im = ulImage(u); if (im) { const [ux, uy] = toS(u.x, u.y); ctx.globalAlpha = u.op; ctx.drawImage(im, ux, uy, u.w * s, u.h * s); ctx.globalAlpha = 1; } }
@@ -1470,6 +1492,9 @@ function draw() {
   for (const sh of shaftsFor(curStory)) drawShaft(sh, sh.st !== curStory);
   if (Ly.struct) for (const f of E('footing')) styled(f, () => drawFooting(f));
   for (const d of E('dormer')) styled(d, () => drawDormer(d));
+  for (const m of E('morph')) styled(m, () => drawMorph(m));
+  for (const c of model.contours.filter(c => c.st === curStory)) drawContour(c);
+  for (const p of E('pipe')) styled(p, () => drawPipe(p));
   // walls: outline pass, then fills hide inner outlines at junctions; weaker walls fill first so the stronger wall's fill wins where they overlap
   const wall0 = E('wall').sort((a, b) => wallPriority(a) - wallPriority(b)), wdemo = wall0.filter(w => renoStyle(w) === 'demo'), ws = wall0.filter(w => renoStyle(w) !== 'demo'), quads = new Map(wall0.map(w => [w, wallQuad(w)]));
   ctx.lineJoin = 'miter'; ctx.strokeStyle = colors.ink; ctx.lineWidth = lw * 2;
@@ -1485,6 +1510,7 @@ function draw() {
   if (Ly.struct) for (const c of E('column')) styled(c, () => { colPath(c); ctx.fillStyle = renoStyle(c) ? colors.paper : pats.concrete; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = colors.ink; if (renoStyle(c) === 'demo') ctx.setLineDash([5, 3]); ctx.stroke(); ctx.setLineDash([]); });
   for (const f of E('furn')) if (opts.rcp ? isMill(f) && FURN[f.type] && FURN[f.type].elev : isMill(f) ? Ly.mill : Ly.furn) styled(f, () => drawFurn(f, colors.ink));
   for (const sk of E('sky')) styled(sk, () => drawSky(sk));
+  if (Ly.elec) for (const f of E('fix')) if (f.cir && fixShown(f)) { const [sx, sy] = toS(f.x, f.y); ctx.fillStyle = colors.accent; ctx.font = `600 9px ${colors.cond}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(f.cir, sx + 8, sy - 6); }
   if (Ly.elec) for (const f of E('fix')) if (fixShown(f)) styled(f, () => { const [sx, sy] = toS(f.x, f.y); drawFix(ctx, f.type, sx, sy, Math.max(5, Math.min(11, .13 * s)), f.rot || 0, colors.ink, colors.paper, s); });
   for (const rl of E('rail')) styled(rl, () => drawRail(rl, colors.ink));
   if (Ly.struct) for (const b of E('beam')) styled(b, () => drawBeam(b, colors.ink));
@@ -1865,7 +1891,8 @@ function drawSelOne(lw, k, noH) {
   else if (kind === 'dim') drawDim(o, colors.accent, k);
   else if (kind === 'section') drawSecMark(o, colors.accent, k);
   else if (kind === 'rail' || kind === 'beam' || kind === 'footing') { poly(lineQuad(o, kind === 'rail' ? .08 : o.w)); ctx.fill(); ctx.stroke(); }
-  else if (kind === 'ramp' || kind === 'shaft' || kind === 'dormer') { rectPath(o); ctx.fill(); ctx.stroke(); }
+  else if (kind === 'ramp' || kind === 'shaft' || kind === 'dormer' || kind === 'morph') { poly(rectCorners(o)); ctx.fill(); ctx.stroke(); }
+  else if (kind === 'pipe' || kind === 'contour') { poly(lineQuad(o, kind === 'pipe' ? Math.max(o.d, .1) : .1)); ctx.fill(); ctx.stroke(); }
   else if (kind === 'label') drawLabel(o, colors.accent);
   else if (kind === 'grid') drawGrid(o, k, colors.accent);
   else if (kind === 'underlay') { rectPath(o); ctx.fillStyle = colors.soft; ctx.fill(); ctx.stroke(); }
@@ -1892,6 +1919,7 @@ function drawPreview(lw, k) {
   if (op && op.type === 'line' && op.b) {
     if (op.target === 'wall') ghostWall(op.a.x, op.a.y, op.b.x, op.b.y);
     else if (op.target === 'rail' || op.target === 'beam' || op.target === 'footing') { poly(lineQuad({ x1: op.a.x, y1: op.a.y, x2: op.b.x, y2: op.b.y }, op.target === 'rail' ? .08 : defaults[op.target].w)); ctx.fillStyle = colors.soft; ctx.fill(); ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.5; ctx.stroke(); }
+    else if (op.target === 'pipe' || op.target === 'contour') { ctx.strokeStyle = colors.accent; ctx.lineWidth = 2; seg([op.a.x, op.a.y], [op.b.x, op.b.y]); }
     else if (op.target === 'measure') drawMeasure({ a: op.a, b: op.b });
     else if (op.target === 'label') { seg([op.a.x, op.a.y], [op.b.x, op.b.y]); }
     else if (op.target === 'section') drawSecMark({ x1: op.a.x, y1: op.a.y, x2: op.b.x, y2: op.b.y, flip: 1, name: nextSecName() }, colors.accent, k);
@@ -1932,6 +1960,9 @@ function hit(p) {
   if (Ly.struct) for (const b of model.beams) if (b.st === st && segDistPts(p, [b.x1, b.y1], [b.x2, b.y2]).d < b.w / 2 + tol * .5) return { kind: 'beam', id: b.id };
   for (const s of model.stairs) if (s.st === st && inRect(p, s)) return { kind: 'stair', id: s.id };
   for (const k of ['dormer', 'shaft', 'ramp']) for (const o of model[LISTS[k]]) if (o.st === st && inRect(p, o)) return { kind: k, id: o.id };
+  for (const q of model.pipes) if (q.st === st && segDistPts(p, [q.x1, q.y1], [q.x2, q.y2]).d < Math.max(q.d / 2, tol * .5)) return { kind: 'pipe', id: q.id };
+  for (const m of model.morphs) if (m.st === st && inShape(p, m)) return { kind: 'morph', id: m.id };
+  for (const c of model.contours) if (c.st === st && segDistPts(p, [c.x1, c.y1], [c.x2, c.y2]).d < tol * .5) return { kind: 'contour', id: c.id };
   if (Ly.struct) for (const b of model.footings) if (b.st === st && segDistPts(p, [b.x1, b.y1], [b.x2, b.y2]).d < b.w / 2 + tol * .3) return { kind: 'footing', id: b.id };
   for (const r of model.roofs) if (r.st === st && nearRectEdge(p, r, tol)) return { kind: 'roof', id: r.id };
   if (Ly.zones) for (let i = model.zones.length - 1; i >= 0; i--) { const z = model.zones[i]; if (z.st === st && inShape(p, z)) return { kind: 'zone', id: z.id }; }
@@ -2030,8 +2061,8 @@ function startOp(l) {
       op.type = 'tapsel'; op.view = { ...view }; return;
     }
     case 'wall': op.type = defaults.wall.method === 'rect' ? 'rect' : 'line'; op.target = 'wall'; break;
-    case 'dim': case 'section': case 'rail': case 'beam': case 'footing': case 'label': case 'measure': case 'grid': case 'calib': op.type = 'line'; op.target = tool; break;
-    case 'slab': case 'roof': case 'zone': case 'stair': case 'site': case 'ramp': case 'shaft': case 'dormer': op.type = 'rect'; op.target = tool; break;
+    case 'dim': case 'section': case 'rail': case 'beam': case 'footing': case 'pipe': case 'contour': case 'label': case 'measure': case 'grid': case 'calib': op.type = 'line'; op.target = tool; break;
+    case 'slab': case 'roof': case 'zone': case 'stair': case 'site': case 'ramp': case 'shaft': case 'dormer': case 'morph': op.type = 'rect'; op.target = tool; break;
     default: op.type = 'place';
   }
   if (op.type === 'line' || op.type === 'rect') { const s = snap(p); op.a = s; op.b = s; op.snapPt = s; }
@@ -2100,7 +2131,7 @@ function endOp(l, cancelled) {
         if (o.target === 'grid') { pushUndo(); const gd = mk.grid(o.a.x, o.a.y, o.b.x, o.b.y); changed(); toast(`Grid ${gd.name}`); break; }
         pushUndo();
         if (o.target === 'wall') mk.wall(curStory, o.a.x, o.a.y, o.b.x, o.b.y);
-        else if (o.target === 'rail' || o.target === 'beam' || o.target === 'footing') mk.line(o.target, curStory, o.a.x, o.a.y, o.b.x, o.b.y);
+        else if (o.target === 'rail' || o.target === 'beam' || o.target === 'footing' || o.target === 'pipe' || o.target === 'contour') mk.line(o.target, curStory, o.a.x, o.a.y, o.b.x, o.b.y);
         else if (o.target === 'section') { const sc = mk.section(o.a.x, o.a.y, o.b.x, o.b.y); curSec = sc.id; setTool('select'); sel = { kind: 'section', id: sc.id }; toast(`Section ${sc.name} added. Tap Open to see it`); }
         else mk.dim(curStory, o.a.x, o.a.y, o.b.x, o.b.y);
         changed(); break;
@@ -2325,6 +2356,8 @@ function buildIFC() {
   for (const c of m.columns) { const S = stRef.get(c.st); if (!S) continue; const pl = LP(S.pl, A3(c.x, -c.y, 0)); const prof = c.round ? add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${P2(0, 0)},$)`)},${F(c.w / 2)})`) : rect(c.w, c.d); put(c.st, add(`IFCCOLUMN('${G()}',$,${ifcStr(tag('Column', c))},$,$,${pl},${shape([solid(prof, c.h)])},$,.COLUMN.)`)); }
   for (const b of m.beams) { const S = stRef.get(b.st); if (!S) continue; const L2 = Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || .1, ux = (b.x2 - b.x1) / L2, uy = (b.y2 - b.y1) / L2, pl = LP(S.pl, A3(b.x1, -b.y1, b.top - b.h, [0, 0, 1], [ux, -uy, 0])); put(b.st, add(`IFCBEAM('${G()}',$,${ifcStr(tag('Beam', b))},$,$,${pl},${shape([solid(rect(L2, b.w, L2 / 2, 0), b.h)])},$,.BEAM.)`)); }
   for (const f of m.footings || []) { const S = stRef.get(f.st); if (!S) continue; const L2 = Math.hypot(f.x2 - f.x1, f.y2 - f.y1) || .1, ux = (f.x2 - f.x1) / L2, uy = (f.y2 - f.y1) / L2, pl = LP(S.pl, A3(f.x1, -f.y1, f.top - f.d, [0, 0, 1], [ux, -uy, 0])); put(f.st, add(`IFCFOOTING('${G()}',$,${ifcStr(tag('Footing', f))},$,$,${pl},${shape([solid(rect(L2, f.w, L2 / 2, 0), f.d)])},$,.STRIP_FOOTING.)`)); }
+  for (const g of m.morphs || []) { if (!stRef.has(g.st)) continue; const b = body('morph', g.st, g.mh, g.elev, rectCorners(g)); put(g.st, add(`IFCBUILDINGELEMENTPROXY('${G()}',$,${ifcStr(tag('Morph', g))},$,$,${b.pl},${b.sh},$,.NOTDEFINED.)`)); }
+  for (const q of m.pipes || []) { const S = stRef.get(q.st); if (!S) continue; const L2 = Math.hypot(q.x2 - q.x1, q.y2 - q.y1) || .1, ux = (q.x2 - q.x1) / L2, uy = (q.y2 - q.y1) / L2, pl = LP(S.pl, A3(q.x1, -q.y1, q.z - q.d / 2, [0, 0, 1], [ux, -uy, 0])), duct = q.sys === 'duct' || q.sys === 'vent'; put(q.st, add(`${duct ? 'IFCDUCTSEGMENT' : 'IFCPIPESEGMENT'}('${G()}',$,${ifcStr((PIPE_SYS[q.sys] || PIPE_SYS.water)[0])},$,$,${pl},${shape([solid(rect(L2, q.d, L2 / 2, 0), q.d)])},$,.RIGIDSEGMENT.)`)); }
   for (const r of m.ramps || []) { const S = stRef.get(r.st); if (!S) continue; put(r.st, add(`IFCRAMP('${G()}',$,${ifcStr(tag('Ramp', r))},$,$,${LP(S.pl, A3(0, 0, 0))},${shape([brep(roofTris(rampRoof(r), 0), 0)], 'Brep')},$,.STRAIGHT_RUN_RAMP.)`)); }
   for (const d of m.dormers || []) { const S = stRef.get(d.st); if (!S) continue; const rf = m.roofs.find(r => r.st === d.st && inShape({ x: d.x + d.w / 2, y: d.y + d.h / 2 }, r)), b0 = rf ? rf.base : S.h, b = body('dormer', d.st, d.dh, b0, rectCorners(d)); put(d.st, add(`IFCBUILDINGELEMENTPROXY('${G()}',$,${ifcStr(tag('Dormer', d))},$,$,${b.pl},${b.sh},$,.NOTDEFINED.)`)); }
   for (const rl of m.rails) { const S = stRef.get(rl.st); if (!S) continue; const L2 = Math.hypot(rl.x2 - rl.x1, rl.y2 - rl.y1) || .1, ux = (rl.x2 - rl.x1) / L2, uy = (rl.y2 - rl.y1) / L2, pl = LP(S.pl, A3(rl.x1, -rl.y1, 0, [0, 0, 1], [ux, -uy, 0])); put(rl.st, add(`IFCRAILING('${G()}',$,${ifcStr(tag('Railing', rl))},$,$,${pl},${shape([solid(rect(L2, .05, L2 / 2, 0), rl.h)])},$,.GUARDRAIL.)`)); }
@@ -2544,6 +2577,9 @@ function build3() {
     for (const f of on('furn')) buildFurn3(f, e + (f.elev || 0), FM);
     for (const f of on('footing')) { const L = Math.hypot(f.x2 - f.x1, f.y2 - f.y1); box(L, f.d, f.w, conc, (f.x1 + f.x2) / 2, e + f.top - f.d / 2, (f.y1 + f.y2) / 2, -Math.atan2(f.y2 - f.y1, f.x2 - f.x1)); }
     for (const r of on('ramp')) addMesh(trisGeo(roofTris(rampRoof(r), e)), stairM, 0, 0, 0);
+    for (const m of on('morph')) addMesh(shapeGeo(rectCorners(m), m.mh), M(0xd9d6cf, { roughness: .8 }), 0, e + m.elev + m.mh, 0);
+    for (const q of on('pipe')) { const L = Math.hypot(q.x2 - q.x1, q.y2 - q.y1); box(L, q.d, q.d, M(new THREE.Color((PIPE_SYS[q.sys] || PIPE_SYS.water)[1]).getHex(), { roughness: .5 }), (q.x1 + q.x2) / 2, e + (pipeZ(q, 0) + pipeZ(q, L)) / 2, (q.y1 + q.y2) / 2, -Math.atan2(q.y2 - q.y1, q.x2 - q.x1)); }
+    if (st === stories()[0] && (model.contours || []).length) { const tt = terrainTris(); if (tt) addMesh(trisGeo(tt), M(0xb9caa3, { roughness: 1, side: THREE.DoubleSide }), 0, 0, 0, 0, false); }
     for (const d of on('dormer')) {
       const rf = on('roof').find(r => inShape({ x: d.x + d.w / 2, y: d.y + d.h / 2 }, r)), b0 = e + (rf ? rf.base : st.h), ns = d.face === 'n' || d.face === 's';
       box(d.w, d.dh, d.h, wallMat.gypsum, d.x + d.w / 2, b0 + d.dh / 2, d.y + d.h / 2, 0);
@@ -2808,6 +2844,8 @@ function sectionPrims(sec) {
     for (const rl of on('rail')) box(HD(lineQuad(rl, .05)), e, e + rl.h, 'concrete');
     for (const b of on('beam')) box(HD(lineQuad(b, b.w)), e + b.top - b.h, e + b.top, 'concrete');
     for (const f of on('footing')) box(HD(lineQuad(f, f.w)), e + f.top - f.d, e + f.top, 'concrete');
+    for (const m of on('morph')) box(HD(rectCorners(m)), e + m.elev, e + m.elev + m.mh, 'concrete');
+    for (const q of on('pipe')) box(HD(lineQuad(q, q.d)), e + q.z - q.d / 2, e + q.z + q.d / 2, 'gypsum');
     for (const r of on('ramp')) { const rr = rampRoof(r); hf(HD(rectCorners(r)), (x, y) => e + roofZ(rr, x, y), () => e, false, 'concrete', null); }
     for (const d of on('dormer')) { const rf = on('roof').find(r => inShape({ x: d.x + d.w / 2, y: d.y + d.h / 2 }, r)), b0 = e + (rf ? rf.base : st.h); box(HD(rectCorners(d)), b0, b0 + d.dh, 'gypsum'); }
     for (const w0 of on('wall')) {
@@ -3085,6 +3123,7 @@ function composeSheet(item, scale, no, of) {
     if (used.length) { const lx = W - M - 62 * k, rh = 6 * k; let ly = ty - 6 * k - used.length * rh; g.fillStyle = '#fff'; g.fillRect(lx - 3 * k, ly - 8 * k, 60 * k, used.length * rh + 9 * k); g.fillStyle = ink; g.font = F(600, 3); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('LEGEND', lx, ly - 3 * k);
       for (const t of used) { drawFix(g, t, lx + 3 * k, ly + rh / 2, 1.9 * k, 0, ink, '#fff', 0); g.fillStyle = ink; g.font = F(400, 2.8); g.textBaseline = 'middle'; g.fillText(FIX[t].n, lx + 9 * k, ly + rh / 2); ly += rh; } }
   }
+  if (item.kind === 'plan') { const K = knUsed(item.st).map(c => KN().find(q => q.c === c) || { c, t: '' }); if (K.length) { const rh = 4.6 * k, lx = M + 4 * k, ly = ty - 4 * k - K.length * rh; g.fillStyle = '#fff'; g.fillRect(lx - 2 * k, ly - 6 * k, 110 * k, K.length * rh + 7 * k); g.fillStyle = ink; g.font = F(600, 3); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('KEYNOTES', lx, ly - 2 * k); K.forEach((q, i) => { const yy = ly + (i + .75) * rh; g.font = F(600, 2.8); g.fillText(q.c, lx, yy); g.font = F(400, 2.8); g.fillText(q.t, lx + 10 * k, yy, 96 * k); }); } }
   const PI = pinfo(), rv = PI.revs.at(-1);
   if (PI.revs.length) { const rw = 92 * k, rh = 4.6 * k, rx = W - M - rw - (model.fixtures.some(f => f.st === item.st && fixShown(f)) && item.kind === 'plan' ? 66 * k : 0), n = Math.min(6, PI.revs.length), ry = ty - n * rh - 6 * k; g.fillStyle = '#fff'; g.fillRect(rx, ry - 5 * k, rw, n * rh + 5 * k); g.strokeStyle = ink; g.lineWidth = .3 * k; g.strokeRect(rx, ry - 5 * k, rw, n * rh + 5 * k); g.fillStyle = mut; g.font = F(500, 2.2, col.cond); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('REV', rx + 2 * k, ry - 1.4 * k); g.fillText('DATE', rx + 10 * k, ry - 1.4 * k); g.fillText('DESCRIPTION', rx + 30 * k, ry - 1.4 * k);
     PI.revs.slice(-n).forEach((r, i) => { const yy = ry + (i + .75) * rh; g.fillStyle = ink; g.font = F(600, 2.8); g.fillText(r.n, rx + 2 * k, yy); g.font = F(400, 2.6, col.mono); g.fillText(r.d, rx + 10 * k, yy); g.font = F(400, 2.8); g.fillText(r.t, rx + 30 * k, yy, rw - 32 * k); }); }
@@ -3208,7 +3247,7 @@ function openExport(preset) {
 /* ================= DXF (R12) export of one plan: metres, y up ================= */
 function planDXF(st) {
   const out = [], P = (...kv) => { for (let i = 0; i < kv.length; i += 2) out.push(kv[i], kv[i + 1]); }, X = v => (+v).toFixed(4), Y = v => (-v).toFixed(4);
-  const LAY = { 'A-WALL': 7, 'A-WALL-PATT': 8, 'A-DOOR': 3, 'A-GLAZ': 5, 'A-AREA': 6, 'A-AREA-IDEN': 6, 'A-ANNO-DIMS': 2, 'A-ANNO-TEXT': 7, 'A-GRID': 1, 'A-FURN': 8, 'A-COLS': 7, 'A-STRS': 4, 'A-ROOF': 9, 'A-SITE': 1, 'E-FIXT': 30, 'A-SKYL': 5, 'S-FNDN': 8, 'A-RAMP': 4, 'A-SHFT': 6 };
+  const LAY = { 'A-WALL': 7, 'A-WALL-PATT': 8, 'A-DOOR': 3, 'A-GLAZ': 5, 'A-AREA': 6, 'A-AREA-IDEN': 6, 'A-ANNO-DIMS': 2, 'A-ANNO-TEXT': 7, 'A-GRID': 1, 'A-FURN': 8, 'A-COLS': 7, 'A-STRS': 4, 'A-ROOF': 9, 'A-SITE': 1, 'E-FIXT': 30, 'A-SKYL': 5, 'S-FNDN': 8, 'A-RAMP': 4, 'A-SHFT': 6, 'P-PIPE': 5, 'M-DUCT': 3, 'C-TOPO': 8, 'A-GENM': 7 };
   const line = (l, a, b) => P(0, 'LINE', 8, l, 10, X(a[0]), 20, Y(a[1]), 30, '0.0', 11, X(b[0]), 21, Y(b[1]), 31, '0.0');
   const pl = (l, pts, closed = true) => { P(0, 'POLYLINE', 8, l, 66, 1, 10, '0.0', 20, '0.0', 30, '0.0', 70, closed ? 1 : 0); for (const q of pts) P(0, 'VERTEX', 8, l, 10, X(q[0]), 20, Y(q[1]), 30, '0.0'); P(0, 'SEQEND', 8, l); };
   const text = (l, x, y, h, t, rot = 0) => P(0, 'TEXT', 8, l, 10, X(x), 20, Y(y), 30, '0.0', 40, h.toFixed(3), 1, String(t).replace(/[\r\n]+/g, ' '), 50, rot.toFixed(2), 72, 1, 11, X(x), 21, Y(y), 31, '0.0');
@@ -3240,6 +3279,9 @@ function planDXF(st) {
   for (const c of on('column')) c.round ? circ('A-COLS', [c.x, c.y], c.w / 2) : pl('A-COLS', [[c.x - c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y + c.d / 2], [c.x - c.w / 2, c.y + c.d / 2]]);
   for (const s of on('stair')) for (const t of stairSteps(s).steps) pl('A-STRS', t.poly);
   for (const f of on('footing')) pl('S-FNDN', lineQuad(f, f.w));
+  for (const q of on('pipe')) line(q.sys === 'duct' || q.sys === 'vent' ? 'M-DUCT' : 'P-PIPE', [q.x1, q.y1], [q.x2, q.y2]);
+  for (const c of on('contour')) line('C-TOPO', [c.x1, c.y1], [c.x2, c.y2]);
+  for (const m of on('morph')) pl('A-GENM', rectCorners(m));
   for (const r of on('ramp')) { pl('A-RAMP', rectCorners(r)); const g = stairGeo(r); line('A-RAMP', g.a, g.b); }
   for (const h of shaftsFor(st)) { const C = rectCorners(h); pl('A-SHFT', C); line('A-SHFT', C[0], C[2]); line('A-SHFT', C[1], C[3]); }
   for (const d of on('dormer')) pl('A-ROOF', rectCorners(d));
@@ -3481,7 +3523,7 @@ async function pdfToImageFile(file) {
 const isPdf = f => f && (f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
 // smart labels: {area} {name} {num} {perimeter} {ceiling} {story} {floor} read from the room under the arrow point
 function labelText(o) {
-  const t = String(o.text || ''); if (!t.includes('{')) return t; const z = zonesAt(o.st, { x: o.x1, y: o.y1 })[0], st = storyOf(o.st);
+  const t = String(o.text || '').replace(/\{kn:([\w.-]+)\}/g, '$1'); if (!t.includes('{')) return t; const z = zonesAt(o.st, { x: o.x1, y: o.y1 })[0], st = storyOf(o.st);
   const V = { area: z ? fmt(areaOf(z)) + ' m²' : '—', name: z ? z.name : '—', num: z ? z.num || '' : '', perimeter: z ? fmt(perimOf(z)) + ' m' : '—', ceiling: z ? fmt(ceilOf(z)) + ' m' : '—', floor: z && z.floor && FLOORS[z.floor] ? FLOORS[z.floor] : '—', story: st ? storyLabel(st) : '', level: st ? (st.elev >= 0 ? '+' : '') + fmt(st.elev) : '' };
   return t.replace(/\{(\w+)\}/g, (m, k) => V[k] != null ? V[k] : m);
 }
@@ -3490,14 +3532,83 @@ const KEYS = { v: 'select', w: 'wall', c: 'column', b: 'beam', s: 'slab', r: 'ro
 function openShortcuts() { $('#menu').hidden = true; openDialog('Keyboard shortcuts', 'export', `<div class="qto"><table><tbody>${Object.entries(KEYS).map(([k, t]) => `<tr><td><b>${k.toUpperCase()}</b></td><td>${esc(NAMES[t] || t)}</td></tr>`).join('')}<tr><td><b>1 / 2 / 3 / 4</b></td><td>Plan, 3D, Plan + 3D, Section</td></tr><tr><td><b>⌘/Ctrl Z</b></td><td>Undo (Shift for redo)</td></tr><tr><td><b>Delete</b></td><td>Delete the selection</td></tr><tr><td><b>Esc</b></td><td>Cancel, back to Arrow</td></tr><tr><td><b>?</b></td><td>This list</td></tr></tbody></table></div>`, [['Done', true, closeDialog]]); }
 function openToolsHub() {
   $('#menu').hidden = true; const tg = (id, on, l) => `<button type="button" class="qtog" id="${id}" aria-pressed="${!!on}">${l}</button>`;
-  openDialog('Analysis and tools', 'export', `<h5>Analysis</h5><div class="sugs"><button type="button" class="qtog" id="thE">Energy and daylight</button><button type="button" class="qtog" id="thA">Area schedule (GIA / NIA)</button><button type="button" class="qtog" id="thC">Embodied carbon</button><button type="button" class="qtog" id="thK">Checks</button></div>
+  openDialog('Analysis and tools', 'export', `<h5>Analysis</h5><div class="sugs"><button type="button" class="qtog" id="thE">Energy and daylight</button><button type="button" class="qtog" id="thA">Area schedule (GIA / NIA)</button><button type="button" class="qtog" id="thC">Embodied carbon</button><button type="button" class="qtog" id="thK">Checks</button><button type="button" class="qtog" id="thR">Room data sheets</button><button type="button" class="qtog" id="thT">Terrain cut and fill</button><button type="button" class="qtog" id="thCi">Circuits</button></div>
+    <h5>Documents</h5><div class="sugs"><button type="button" class="qtog" id="thKn">Keynotes</button><button type="button" class="qtog" id="thB">Export issues (BCF)</button></div>
     <h5>Generate</h5><div class="sugs"><button type="button" class="qtog" id="thP">Parking layout…</button></div><p class="intro">Select a wall for a kitchen run, or a slab for railings on its open edges.</p>
-    <h5>Settings</h5><div class="sugs">${tg('thCe', opts.ceil3d, 'Ceilings in 3D')}${tg('thSt', opts.stylus, 'Stylus mode (ignore finger and palm)')}<button type="button" class="qtog" id="thS">Keyboard shortcuts</button></div>`, [['Done', true, closeDialog]]);
+    <h5>Settings</h5><div class="sugs">${tg('thCe', opts.ceil3d, 'Ceilings in 3D')}${tg('thSt', opts.stylus, 'Stylus mode (ignore finger and palm)')}<button type="button" class="qtog" id="thS">Keyboard shortcuts</button><button type="button" class="qtog" id="thTb">Toolbar…</button></div><h5>Pens</h5><div class="sugs">${Object.entries(PENS).map(([k, v]) => `<button type="button" class="qtog" data-pen="${k}" aria-pressed="${penSet === k}">${v[0]} lines</button>`).join('')}</div>`, [['Done', true, closeDialog]]);
+  $('#thR').onclick = openRoomData; $('#thCi').onclick = openCircuits; $('#thKn').onclick = openKeynotes; $('#thB').onclick = exportBCF; $('#thTb').onclick = openToolbar;
+  $('#thT').onclick = () => { const r = cutFill(); if (!r) { toast('Draw contour lines first (Contour tool), then slabs on the ground floor'); return; } openDialog('Terrain cut and fill', 'site', `<p class="intro">Ground from your contour lines; formation 150 mm below the ground-floor slabs, over ${fmt(r.A)} m² of footprint.</p><p class="intro"><b>Cut ${fmt(r.cut, 1)} m³ · Fill ${fmt(r.fill, 1)} m³</b> · balance ${fmt(r.cut - r.fill, 1)} m³ ${r.cut >= r.fill ? 'to remove' : 'to bring in'}.</p>`, [['Done', true, closeDialog]]); };
+  document.querySelectorAll('[data-pen]').forEach(b => b.onclick = () => { penSet = b.dataset.pen; try { localStorage.setItem('pocketbim.pens', penSet); } catch (e) { } requestDraw(); openToolsHub(); });
   $('#thE').onclick = openEnergy; $('#thA').onclick = openAreas; $('#thC').onclick = openCarbon; $('#thP').onclick = () => { closeDialog(); openParking(); }; $('#thS').onclick = openShortcuts;
   $('#thK').onclick = () => { closeDialog(); $('#qChecks').click(); };
   $('#thCe').onclick = () => { opts.ceil3d = !opts.ceil3d; dirty3 = true; request3 && request3(); openToolsHub(); };
   $('#thSt').onclick = () => { opts.stylus = !opts.stylus; toast(opts.stylus ? 'Stylus mode: only the pen draws; pinch with two fingers to move' : 'Stylus mode off'); openToolsHub(); };
 }
+// ---------- v12: morphs, pipes and ducts, circuits, keynotes, room data, terrain, DXF import, BCF, toolbar, pens ----------
+const pipeZ = (p, t) => p.z - (p.sys === 'drain' ? (p.fall || 0) / 100 * t : 0); // drains fall from the start
+function drawPipe(p) { const c = (PIPE_SYS[p.sys] || PIPE_SYS.water)[1], duct = p.sys === 'duct' || p.sys === 'vent'; ctx.strokeStyle = c; ctx.fillStyle = c + '22'; ctx.lineWidth = duct ? 1 : Math.max(1.2, p.d * view.s * .6); if (p.sys === 'drain') ctx.setLineDash([8, 3]); if (duct) { poly(lineQuad(p, p.d)); ctx.fill(); ctx.stroke(); } else seg([p.x1, p.y1], [p.x2, p.y2]); ctx.setLineDash([]); const L = Math.hypot(p.x2 - p.x1, p.y2 - p.y1); if (L * view.s > 60) { const [mx, my] = toS((p.x1 + p.x2) / 2, (p.y1 + p.y2) / 2); ctx.fillStyle = c; ctx.font = `600 10px ${colors.cond}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(`${duct ? Math.round(p.d * 1000) + ' mm' : 'Ø' + Math.round(p.d * 1000)}${p.sys === 'drain' ? ' · ' + fmt(p.fall || 0, 1) + '%' : ''}`, mx, my - 4); } }
+function drawContour(c) { ctx.strokeStyle = colors.trace || '#9aa'; ctx.lineWidth = (Math.round(c.z * 100) % 100 === 0) ? 1.2 : .7; ctx.setLineDash([]); seg([c.x1, c.y1], [c.x2, c.y2]); const [mx, my] = toS((c.x1 + c.x2) / 2, (c.y1 + c.y2) / 2); ctx.fillStyle = colors.muted; ctx.font = `10px ${colors.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((c.z >= 0 ? '+' : '') + fmt(c.z), mx, my - 8); }
+function drawMorph(m) { ctx.strokeStyle = colors.ink; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(160,160,160,.12)'; if (m.elev > 1.2) ctx.setLineDash([6, 3]); poly(rectCorners(m)); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); }
+// terrain from contour lines: inverse-distance weighting of points sampled along every line
+function terrainPts() { const out = []; for (const c of model.contours || []) { const L = Math.hypot(c.x2 - c.x1, c.y2 - c.y1), n = Math.max(1, Math.ceil(L)); for (let i = 0; i <= n; i++) out.push([c.x1 + (c.x2 - c.x1) * i / n, c.y1 + (c.y2 - c.y1) * i / n, c.z]); } return out; }
+function groundZ(P, x, y) { let a = 0, b = 0; for (const [px, py, z] of P) { const d2 = (px - x) ** 2 + (py - y) ** 2; if (d2 < 1e-6) return z; const w = 1 / (d2 * d2); a += w * z; b += w; } return b ? a / b : 0; }
+function terrainExtent() { const xs = [], ys = []; for (const c of model.contours || []) { xs.push(c.x1, c.x2); ys.push(c.y1, c.y2); } for (const s of model.sites || []) { xs.push(s.x, s.x + s.w); ys.push(s.y, s.y + s.h); } if (!xs.length) return null; return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; }
+function terrainTris() { const P = terrainPts(), B = terrainExtent(); if (!P.length || !B || B.w < 1 || B.h < 1) return null; const N = 40, Z = []; for (let i = 0; i <= N; i++) { Z.push([]); for (let j = 0; j <= N; j++) Z[i].push(groundZ(P, B.x + B.w * i / N, B.y + B.h * j / N)); }
+  const tris = [], V = (i, j) => [B.x + B.w * i / N, Z[i][j] - .02, B.y + B.h * j / N]; for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const a = V(i, j), b = V(i + 1, j), c = V(i + 1, j + 1), d = V(i, j + 1); tris.push(...a, ...d, ...c, ...a, ...c, ...b); } return tris; }
+function cutFill() { const P = terrainPts(); if (!P.length) return null; const g = stories()[0]; let cut = 0, fill = 0, A = 0; const st = .5;
+  for (const s of model.slabs.filter(s => g && s.st === g.id)) { const f = g.elev - s.t - .15, b = bboxOf(rectCorners(s)); for (let x = b.x + st / 2; x < b.x + b.w; x += st) for (let y = b.y + st / 2; y < b.y + b.h; y += st) { if (!inShape({ x, y }, s)) continue; const d = groundZ(P, x, y) - f; A += st * st; if (d > 0) cut += d * st * st; else fill -= d * st * st; } }
+  return { cut, fill, A }; }
+// circuits
+const FIXW = { downlight: 8, spot: 6, pendant: 40, linear: 30, fan: 60, smoke: 1, speaker: 10, ac: 1200, socket: 200, socket2: 400, switch: 0, switch2: 0, data: 0 };
+function openCircuits() { const by = {}; for (const f of model.fixtures || []) { const k = f.cir || '—'; (by[k] = by[k] || []).push(f); } const keys = Object.keys(by).sort(); const fW = v => v >= 1000 ? fmt(v / 1000, 2) + ' kW' : Math.round(v) + ' W';
+  openDialog('Circuits', 'export', `<p class="intro">Fixtures grouped by the circuit set on each one (select a fixture, then Circuit). Loads are typical allowances, for sizing the board, not a design.</p><div class="qto"><table><thead><tr><th>Circuit</th><th>Points</th><th>Load</th><th>Current at 230 V</th></tr></thead><tbody>${keys.map(k => { const L = by[k], W = L.reduce((a, f) => a + (FIXW[f.type] || 0), 0); return `<tr class="qg"><td>${esc(k === '—' ? 'Not assigned' : k)}</td><td>${L.length}</td><td>${fW(W)}</td><td>${fmt(W / 230, 1)} A</td></tr><tr><td colspan="4">${esc([...new Set(L.map(f => FIX[f.type] && FIX[f.type].n))].map(n => `${L.filter(f => FIX[f.type] && FIX[f.type].n === n).length} × ${n}`).join(', '))}</td></tr>`; }).join('') || '<tr><td colspan="4">No fixtures yet.</td></tr>'}</tbody></table></div>`, [['Done', true, closeDialog]]); }
+// keynotes: labels written as {kn:CODE} show the code; the legend lists the text
+const KN = () => model.keynotes || (model.keynotes = []);
+function knUsed(st) { const s = new Set(); for (const l of model.labels) if (!st || l.st === st) for (const m of String(l.text || '').matchAll(/\{kn:([\w.-]+)\}/g)) s.add(m[1]); return [...s].sort(); }
+function openKeynotes() { const L = KN();
+  openDialog('Keynotes', 'export', `<p class="intro">Write a label as <b>{kn:05}</b> and it shows the code 05; plan sheets get a keynote legend with the text you set here.</p><div class="qto"><table><thead><tr><th>Code</th><th>Note</th><th></th></tr></thead><tbody>${L.map((k, i) => `<tr><td>${esc(k.c)}</td><td>${esc(k.t)}</td><td><button class="qtog" data-kx="${i}">Remove</button></td></tr>`).join('') || '<tr><td colspan="3">No keynotes yet.</td></tr>'}</tbody></table></div>
+    <div class="dgrid"><label class="fld" for="knC"><span>Code</span><span class="fin txt"><input id="knC" type="text" maxlength="8" placeholder="05"></span></label><label class="fld" for="knT"><span>Note</span><span class="fin txt"><input id="knT" type="text" maxlength="90" placeholder="Render 15 mm on mesh"></span></label></div>${knUsed().filter(c => !L.some(k => k.c === c)).length ? `<p class="intro">Used on plans without a note: ${esc(knUsed().filter(c => !L.some(k => k.c === c)).join(', '))}</p>` : ''}`,
+    [['Add', true, () => { const c = $('#knC').value.trim(), t = $('#knT').value.trim(); if (!c || !t) { toast('Give a code and a note'); return; } pushUndo(); const i = L.findIndex(k => k.c === c); if (i >= 0) L[i].t = t; else L.push({ c, t }); L.sort((a, b) => a.c.localeCompare(b.c, undefined, { numeric: true })); changed(); openKeynotes(); }]]);
+  document.querySelectorAll('[data-kx]').forEach(b => b.onclick = () => { pushUndo(); L.splice(Number(b.dataset.kx), 1); changed(); openKeynotes(); }); }
+// room data sheets
+function roomData() { const E = energyData(); return model.zones.filter(z => storyOf(z.st)).map(z => { const st = storyOf(z.st), ops = model.openings.filter(o => { const w = wallById(o.wid); if (!w || w.st !== z.st) return false; const g = wgeo(w), c = [w.x1 + g.ux * o.pos, w.y1 + g.uy * o.pos], d = w.t / 2 + .2; return [[c[0] + g.nx * d, c[1] + g.ny * d], [c[0] - g.nx * d, c[1] - g.ny * d]].some(([x, y]) => inShape({ x, y }, z)); }), fx = (model.fixtures || []).filter(f => f.st === z.st && inShape(f, z)), fu = model.furniture.filter(f => f.st === z.st && inShape(f, z)), er = E.rooms.find(r => r.z === z);
+  return { z, story: storyLabel(st), A: areaOf(z), P: perimOf(z), ch: ceilOf(z), ceil: CEILT[z.ceilT || 'plaster'] || 'Plaster', floor: FLOORS[z.floor] || '—', wallA: perimOf(z) * ceilOf(z), doors: ops.filter(o => o.type === 'door').length, wins: ops.filter(o => o.type === 'window').length, glz: er ? er.Aw : 0, DF: er ? er.DF : 0, fix: fx.map(f => FIX[f.type] ? FIX[f.type].n : f.type), furn: fu.map(f => FURN[f.type] ? FURN[f.type].label : f.type) }; }); }
+function openRoomData() { const R = roomData(), cnt = a => Object.entries(a.reduce((m, n) => (m[n] = (m[n] || 0) + 1, m), {})).map(([n, c]) => `${c} × ${n}`).join(', ') || '—';
+  openDialog('Room data sheets', 'export', R.map(r => `<h5>${esc((r.z.num ? r.z.num + ' ' : '') + r.z.name)} · ${esc(r.story)}</h5><div class="qto"><table><tbody><tr><td>Area</td><td>${fmt(r.A)} m²</td><td>Perimeter</td><td>${fmt(r.P)} m</td></tr><tr><td>Ceiling</td><td>${fmt(r.ch)} m · ${esc(r.ceil)}</td><td>Floor</td><td>${esc(r.floor)}</td></tr><tr><td>Wall area</td><td>${fmt(r.wallA)} m²</td><td>Doors / windows</td><td>${r.doors} / ${r.wins}</td></tr><tr><td>Glazing</td><td>${fmt(r.glz)} m²</td><td>Daylight factor</td><td>${fmt(r.DF, 1)}%</td></tr><tr><td>Fixtures</td><td colspan="3">${esc(cnt(r.fix))}</td></tr><tr><td>Furniture</td><td colspan="3">${esc(cnt(r.furn))}</td></tr></tbody></table></div>`).join('') || '<p class="intro">Draw zones first.</p>',
+    [['Export CSV', false, () => { const q = v => `"${String(v).replace(/"/g, '""')}"`, rows = [['Number', 'Room', 'Story', 'Area m2', 'Perimeter m', 'Ceiling m', 'Ceiling', 'Floor', 'Wall area m2', 'Doors', 'Windows', 'Glazing m2', 'Daylight factor %', 'Fixtures', 'Furniture']].concat(R.map(r => [r.z.num || '', r.z.name, r.story, r.A.toFixed(2), r.P.toFixed(2), r.ch.toFixed(2), r.ceil, r.floor, r.wallA.toFixed(2), r.doors, r.wins, r.glz.toFixed(2), r.DF.toFixed(1), cnt(r.fix), cnt(r.furn)])); saveFile(`${slug(model.name)}-room-data.csv`, new Blob([rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' })); }], ['Done', true, closeDialog]]); }
+// DXF import: LINE and LWPOLYLINE become walls; pairs of parallel lines become one wall with their spacing as thickness
+function dxfLines(text) { const t = text.split(/\r?\n/), out = [], layers = new Set(); let i = 0; const ents = t.findIndex((v, k) => v.trim() === 'ENTITIES' && t[k - 1] && t[k - 1].trim() === '2'); i = ents < 0 ? 0 : ents;
+  while (i < t.length - 1) { if (t[i].trim() !== '0') { i++; continue; } const type = t[i + 1].trim(); i += 2; const g = []; while (i < t.length - 1 && t[i].trim() !== '0') { g.push([Number(t[i].trim()), t[i + 1].trim()]); i += 2; } const lay = (g.find(q => q[0] === 8) || [0, '0'])[1];
+    if (type === 'LINE') { const v = c => Number((g.find(q => q[0] === c) || [0, NaN])[1]); out.push({ lay, a: [v(10), v(20)], b: [v(11), v(21)] }); layers.add(lay); }
+    else if (type === 'LWPOLYLINE') { const xs = g.filter(q => q[0] === 10).map(q => Number(q[1])), ys = g.filter(q => q[0] === 20).map(q => Number(q[1])), cl = (Number((g.find(q => q[0] === 70) || [0, 0])[1]) & 1) === 1; for (let k = 0; k + 1 < xs.length; k++) out.push({ lay, a: [xs[k], ys[k]], b: [xs[k + 1], ys[k + 1]] }); if (cl && xs.length > 2) out.push({ lay, a: [xs.at(-1), ys.at(-1)], b: [xs[0], ys[0]] }); layers.add(lay); }
+    if (type === 'ENDSEC') break; }
+  return { lines: out.filter(l => [...l.a, ...l.b].every(Number.isFinite)), layers: [...layers] }; }
+function dxfToWalls(lines, sc, t0, pair) { const L = lines.map(l => ({ a: [l.a[0] * sc, -l.a[1] * sc], b: [l.b[0] * sc, -l.b[1] * sc] })).filter(l => Math.hypot(l.b[0] - l.a[0], l.b[1] - l.a[1]) > .05), used = new Set(), out = [];
+  if (pair) for (let i = 0; i < L.length; i++) { if (used.has(i)) continue; const p = L[i], dx = p.b[0] - p.a[0], dy = p.b[1] - p.a[1], ln = Math.hypot(dx, dy), ux = dx / ln, uy = dy / ln; let best = null;
+    for (let j = i + 1; j < L.length; j++) { if (used.has(j)) continue; const q = L[j], ex = q.b[0] - q.a[0], ey = q.b[1] - q.a[1], lq = Math.hypot(ex, ey); if (Math.abs(ux * ey / lq - uy * ex / lq) > .02) continue; const d = Math.abs((q.a[0] - p.a[0]) * -uy + (q.a[1] - p.a[1]) * ux); if (d < .05 || d > .6) continue; const s1 = (q.a[0] - p.a[0]) * ux + (q.a[1] - p.a[1]) * uy, s2 = (q.b[0] - p.a[0]) * ux + (q.b[1] - p.a[1]) * uy, ov = Math.min(ln, Math.max(s1, s2)) - Math.max(0, Math.min(s1, s2)); if (ov < .7 * Math.min(ln, lq)) continue; if (!best || d < best.d) best = { j, d, s0: Math.max(0, Math.min(s1, s2)), s1: Math.min(ln, Math.max(s1, s2)), q }; }
+    if (best) { used.add(i); used.add(best.j); const sg = Math.sign((best.q.a[0] - p.a[0]) * -uy + (best.q.a[1] - p.a[1]) * ux), ox = -uy * sg * best.d / 2, oy = ux * sg * best.d / 2; out.push([p.a[0] + ux * best.s0 + ox, p.a[1] + uy * best.s0 + oy, p.a[0] + ux * best.s1 + ox, p.a[1] + uy * best.s1 + oy, best.d]); } }
+  L.forEach((l, i) => { if (!used.has(i)) out.push([...l.a, ...l.b, t0]); }); return out; }
+function openDxfImport() { $('#menu').hidden = true; const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.dxf'; fi.onchange = async () => { const f = fi.files[0]; if (!f) return; let D; try { D = dxfLines(await f.text()); } catch (e) { toast('Could not read that DXF'); return; } if (!D.lines.length) { toast('No lines found. Save the DXF with LINE or LWPOLYLINE entities'); return; }
+    const ext = Math.max(...D.lines.flatMap(l => [Math.abs(l.a[0] - D.lines[0].a[0]), Math.abs(l.a[1] - D.lines[0].a[1])])), guess = ext > 500 ? 'mm' : ext > 50 ? 'cm' : 'm', wl = D.layers.filter(l => /wall|mur|a-wall/i.test(l));
+    openDialog('Import DXF', 'wall', `<p class="intro">${D.lines.length} lines on ${D.layers.length} layer${D.layers.length === 1 ? '' : 's'}. They become walls on this story; pairs of parallel lines (a drawn wall's two faces) become one wall as thick as their spacing. DWG files: save as DXF first.</p>
+      <div class="dgrid"><label class="fld" for="dxU"><span>Units</span><span class="fin"><select id="dxU">${['mm', 'cm', 'm'].map(u => `<option${u === guess ? ' selected' : ''}>${u}</option>`).join('')}</select></span></label><label class="fld" for="dxT"><span>Single-line walls</span><span class="fin"><input id="dxT" type="text" inputmode="decimal" value="0.2"><i>m</i></span></label></div>
+      <h5>Layers</h5><div class="sugs">${D.layers.map(l => `<button type="button" class="qtog" data-dl="${esc(l)}" aria-pressed="${!wl.length || wl.includes(l)}">${esc(l)}</button>`).join('')}</div>`, [['Import', true, () => {
+        const on = new Set([...document.querySelectorAll('[data-dl]')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.dl)), sc = { mm: .001, cm: .01, m: 1 }[$('#dxU').value], t0 = Math.min(1, Math.max(.05, parseFloat($('#dxT').value.replace(',', '.')) || .2));
+        const W = dxfToWalls(D.lines.filter(l => on.has(l.lay)), sc, t0, true); if (!W.length) { toast('Nothing to import on those layers'); return; } const xs = W.flatMap(w => [w[0], w[2]]), ys = W.flatMap(w => [w[1], w[3]]), b = storyBounds(curStory), dx = (b ? b.x + b.w + 3 : 0) - Math.min(...xs), dy = (b ? b.y : 0) - Math.min(...ys), grp = uid(); pushUndo(); let n = 0;
+        for (const [x1, y1, x2, y2, t] of W) try { const w = mk.wall(curStory, x1 + dx, y1 + dy, x2 + dx, y2 + dy, { t: r3(t) }); w.grp = grp; n++; } catch (e) { } closeDialog(); changed(); fitView(); toast(`${n} walls imported from the DXF, grouped`); }]]);
+    document.querySelectorAll('[data-dl]').forEach(bt => bt.onclick = () => bt.setAttribute('aria-pressed', String(bt.getAttribute('aria-pressed') !== 'true'))); }; fi.click(); }
+// BCF 2.1: every open check becomes an issue that Revit, ArchiCAD, Solibri or BIMcollab can read
+function zipFiles(files) { const enc = new TextEncoder(), parts = [], cent = []; let off = 0; const d = new Date(), dt = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(), tm = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  for (const [name, data] of files) { const by = typeof data === 'string' ? enc.encode(data) : data, nm = enc.encode(name); let c = 0xFFFFFFFF; for (let i = 0; i < by.length; i++) c = CRCT[(c ^ by[i]) & 255] ^ (c >>> 8); c = (c ^ 0xFFFFFFFF) >>> 0;
+    const h = (central) => { const b = new DataView(new ArrayBuffer(central ? 46 : 30)); let o = 0; const u32 = v => { b.setUint32(o, v, true); o += 4; }, u16 = v => { b.setUint16(o, v, true); o += 2; }; u32(central ? 0x02014b50 : 0x04034b50); if (central) u16(20); u16(20); u16(0); u16(0); u16(tm); u16(dt); u32(c); u32(by.length); u32(by.length); u16(nm.length); u16(0); if (central) { u16(0); u16(0); u16(0); u32(0); u32(off); } return new Uint8Array(b.buffer); };
+    const L = h(false); cent.push(h(true), nm); parts.push(L, nm, by); off += L.length + nm.length + by.length; }
+  const cl = cent.reduce((a, b) => a + b.length, 0), E = new DataView(new ArrayBuffer(22)); E.setUint32(0, 0x06054b50, true); E.setUint16(8, files.length, true); E.setUint16(10, files.length, true); E.setUint32(12, cl, true); E.setUint32(16, off, true); return new Blob([...parts, ...cent, new Uint8Array(E.buffer)], { type: 'application/zip' }); }
+function exportBCF() { const C = runChecks(), x = s => String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]), uu = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16)), now = new Date().toISOString();
+  if (!C.length) { toast('No open checks to export'); return; } const files = [['bcf.version', '<?xml version="1.0" encoding="UTF-8"?><Version VersionId="2.1"><DetailedVersion>2.1</DetailedVersion></Version>'], ['project.bcfp', `<?xml version="1.0" encoding="UTF-8"?><ProjectExtension><Project ProjectId="${uu()}"><Name>${x(model.name)}</Name></Project></ProjectExtension>`]];
+  for (const c of C) { const g = uu(), st = storyOf(c.st); files.push([`${g}/markup.bcf`, `<?xml version="1.0" encoding="UTF-8"?><Markup><Topic Guid="${g}" TopicType="Issue" TopicStatus="Open"><Title>${x(c.msg.slice(0, 120))}</Title><CreationDate>${now}</CreationDate><CreationAuthor>Pocket BIM checks</CreationAuthor><Description>${x(c.msg + (st ? ' · ' + storyLabel(st) : ''))}</Description></Topic></Markup>`]); }
+  saveFile(`${slug(model.name)}-issues.bcfzip`, zipFiles(files)); toast(`${C.length} issues exported as BCF`); }
+function openToolbar() { openDialog('Toolbar', 'export', `<p class="intro">Tap to show or hide tools. Kept on this device.</p>${TOOLGROUPS.map(([g, ts]) => `<h5>${g}</h5><div class="sugs">${ts.filter(t => t !== 'select').map(t => `<button type="button" class="qtog" data-tb="${t}" aria-pressed="${!hiddenTools.has(t)}">${esc(SHORT[t])}</button>`).join('')}</div>`).join('')}`, [['Done', true, closeDialog]]);
+  document.querySelectorAll('[data-tb]').forEach(b => b.onclick = () => { const t = b.dataset.tb; hiddenTools.has(t) ? hiddenTools.delete(t) : hiddenTools.add(t); b.setAttribute('aria-pressed', String(!hiddenTools.has(t))); try { localStorage.setItem(TBKEY, JSON.stringify([...hiddenTools])); } catch (e) { } renderToolbox(); renderChrome && renderChrome(); }); }
 function loadUnderlay(file, old) {
   if (isPdf(file)) { toast('Reading the PDF…'); pdfToImageFile(file).then(f2 => loadUnderlay(f2, old), () => toast('Could not read that PDF')); return; }
   const rd = new FileReader();
@@ -3553,6 +3664,8 @@ function quantities() {
   for (const s of model.stairs) if (storyOf(s.st) && live(s)) add('Structure', 'Stairs (flights)', 'pcs', 1, 'stair');
   for (const f of model.footings || []) if (storyOf(f.st) && live(f)) { const L = Math.hypot(f.x2 - f.x1, f.y2 - f.y1); add('Structure', 'Strip footings', 'm', L, 'fndL'); add('Structure', 'Concrete in footings', 'm³', L * f.w * f.d, 'fndV'); }
   for (const r of model.ramps || []) if (storyOf(r.st) && live(r)) add('Structure', 'Ramps', 'm²', r.w * r.h, 'ramp');
+  for (const q of model.pipes || []) if (storyOf(q.st)) add('Services', `${(PIPE_SYS[q.sys] || PIPE_SYS.water)[0]} ${q.sys === 'duct' || q.sys === 'vent' ? Math.round(q.d * 1000) + ' mm' : 'Ø' + Math.round(q.d * 1000)}`, 'm', Math.hypot(q.x2 - q.x1, q.y2 - q.y1), `pipe:${q.sys}${Math.round(q.d * 1000)}`);
+  for (const g of model.morphs || []) if (storyOf(g.st)) add('Structure', 'Morph volumes', 'm³', areaOf(g) * g.mh, 'morphV');
   for (const d of model.dormers || []) if (storyOf(d.st) && live(d)) add('Roofs', 'Dormers', 'pcs', 1, 'dormer');
   for (const r of model.roofs) if (storyOf(r.st) && live(r) && (r.gut || r.fas > 0)) { const E2 = eaveEdges(r), L = E2.reduce((a, [p, q]) => a + Math.hypot(q[0] - p[0], q[1] - p[1]), 0); if (r.gut && L) { add('Roofs', 'Gutters', 'm', L, 'gut'); add('Roofs', 'Downpipes', 'pcs', new Set(E2.flat().map(c => c.map(v => v.toFixed(3)).join(','))).size, 'dpipe'); } if (r.fas > 0 && L) add('Roofs', 'Fascia boards', 'm', L, 'fas'); }
   for (const f of model.fixtures || []) if (storyOf(f.st) && live(f) && FIXT()[f.type]) add('Electrical & fixtures', FIXT()[f.type].n, 'pcs', 1, 'fix:' + f.type);
@@ -3625,6 +3738,7 @@ function runChecks() {
   for (const f of model.furniture) { if (FURN[f.type] && FURN[f.type].h === 0 || f.type === 'tree' || f.type === 'car') continue; const cs = furnCorners(f); const hit = model.walls.find(w => { if (w.st !== f.st) return false; const g = wgeo(w), L = wlen(w), al = cs.map(([x, y]) => (x - w.x1) * g.ux + (y - w.y1) * g.uy), sd = cs.map(([x, y]) => (x - w.x1) * g.nx + (y - w.y1) * g.ny); if (Math.max(...al) < .05 || Math.min(...al) > L - .05) return false; return segDist({ x: f.x, y: f.y }, w).d < w.t / 2 || Math.max(...sd) > w.t / 2 + .05 && Math.min(...sd) < -w.t / 2 - .05; }); if (hit) out.push({ kind: 'furn', id: f.id, st: f.st, msg: `Clash: ${FURN[f.type] ? FURN[f.type].label : 'object'} runs into a wall` }); }
   // fire: rough travel distance from each room to an exit (external door, or a stair above the ground floor)
   { const gnd = stories()[0]; for (const z of model.zones) { const st = storyOf(z.st); if (!st) continue; const c = centerOf(z), ex = []; for (const o of model.openings) { const w = wallById(o.wid); if (o.type === 'door' && w && w.st === z.st && isExtWall(w)) { const g = wgeo(w); ex.push([w.x1 + g.ux * o.pos, w.y1 + g.uy * o.pos]); } } if (gnd && st.id !== gnd.id) for (const s of model.stairs) if (s.st === z.st || storyAbove(s.st) && storyAbove(s.st).id === z.st) ex.push([s.x + s.w / 2, s.y + s.h / 2]); if (!ex.length) continue; const d = Math.min(...ex.map(([x, y]) => Math.abs(x - c[0]) + Math.abs(y - c[1]))); if (d > 30) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Fire: about ${Math.round(d)} m from ${z.name} to the nearest exit, over 30 m` }); } }
+  for (const q of model.pipes || []) if (q.sys === 'drain' && (q.fall || 0) < 1) out.push({ kind: 'pipe', id: q.id, st: q.st, msg: `Drainage: fall ${fmt(q.fall || 0, 1)}%, under 1% (1:100)` });
   for (const r of model.ramps || []) { const sl = rampSlope(r); if (sl > 1 / 12 + 1e-4) out.push({ kind: 'ramp', id: r.id, st: r.st, msg: `Ramp: slope 1:${(1 / sl).toFixed(1)}, steeper than 1:12` }); if (Math.min(r.w, r.h) < .9) out.push({ kind: 'ramp', id: r.id, st: r.st, msg: `Ramp: width ${fmt(Math.min(r.w, r.h))} m, under 0.90 m` }); }
   chkCache = { v: ver, list: out }; return out;
 }

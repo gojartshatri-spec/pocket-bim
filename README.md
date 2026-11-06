@@ -39,6 +39,10 @@ A lite ArchiCAD for phones: floor plans with walls, doors, windows, columns, bea
 - **Generators:** kitchen runs along a wall, railings on a slab's open edges, parking layouts; trees, shrubs and cars.
 - **Sheets:** project number, client, revisions table and sheet numbers in the title block; 1:20 and 1:5 scales; smart labels like {name} {area}.
 - **More:** versions you can save, compare and restore; PDF underlays; sun study that plays a day, with city latitudes; ceilings in 3D; stylus mode; keyboard shortcuts (press ?).
+- **Services:** pipes and ducts by system (drainage with fall checks, water, heating, gas, supply and extract air); electrical circuits with a load schedule.
+- **Site:** contour lines build a 3D terrain, with cut and fill under the ground floor.
+- **Documents:** keynotes with a sheet legend, room data sheets (also CSV), check results exported as BCF issues.
+- **Import and set-up:** DXF to walls (paired face lines become one wall), free-form morph blocks, a toolbar you can trim, fine / standard / bold pens.
 - **IFC:** export the whole model as IFC 4 (stories, walls with U-values, openings that cut their walls, slabs, gable and shed roofs, rooms, stairs, columns, beams, railings, objects) and import walls, slabs, roofs, rooms, columns, doors and windows from IFC.
 - **Hand-off:** DXF (R12) plan export with CAD layers, saved 3D views, 3D image (PNG), GLB model, and AR on ARCore phones.
 
