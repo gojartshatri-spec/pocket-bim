@@ -1,5 +1,5 @@
 // Pocket BIM service worker: app shell is precached so the app opens offline.
-const VERSION = '084a36ebde';
+const VERSION = '4f484fddac';
 const CACHE = 'pocketbim-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // everything else (icons, three.js, fonts): cache first, fill the cache on first use
-  const cacheable = url.origin === location.origin || /(cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)$/.test(url.hostname);
+  const cacheable = url.origin === location.origin || /(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)$/.test(url.hostname);
   if (!cacheable) return;
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
     if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }

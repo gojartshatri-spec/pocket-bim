@@ -16,5 +16,14 @@ A lite ArchiCAD for phones: floor plans with walls, doors, windows, columns, bea
 - **Checks:** flags small rooms, low daylight (glazing under 1/8 of the floor), narrow doors and steep stairs. These are typical residential minimums, not a building-code check.
 - **3D:** finishes (render, brick, timber, concrete, stone, tile), floor materials, and a sun study by date, time and latitude.
 - **Measure:** distances, or a room's area and perimeter.
+- **Shapes and editing:** polygon zones, slabs, roofs and site; hip, shed, gable and flat roofs; multi-select with move, copy, rotate, mirror, array, align and groups; wall offset, trim/extend and split.
+- **Wall types:** layered walls (render, insulation, brick, block, concrete, gypsum, timber…) with U-values, drawn layer by layer in plans and sections.
+- **Renovation:** existing / demolish / new status with existing, demolition and proposed plans; demolished elements dashed red, also in 3D.
+- **Site and grids:** plot boundary with setback line and check, site coverage, true north (also used by the sun study); structural grid lines with bubbles that snap and show in sections.
+- **Ceiling plan:** ceiling heights and types per room, lights, fans, detectors, speakers and AC; sockets, switches and data outlets on the floor plan; legend on the sheet.
+- **Openings:** single, double, sliding, pocket and cased doors; casement, tilt & turn, sliding and fixed windows; skylights that follow the roof slope.
+- **Quantities and cost:** net wall areas by type, layer volumes, bricks and blocks, slabs, roof slope areas, finishes, openings, millwork and fixtures, with your rates; on screen, as a sheet or CSV.
+- **Underlay:** trace a survey or scan; calibrate its scale by a known distance (kept on the device).
+- **Hand-off:** DXF (R12) plan export with CAD layers, saved 3D views, 3D image (PNG), GLB model, and AR on ARCore phones.
 
 Projects are saved on the device itself; *Copy project as JSON* and *Import* move them between devices. The AI assistant and cloud projects with shared comments work when the app is opened inside Claude.
