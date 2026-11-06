@@ -323,6 +323,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <hr>
     <button id="mCopy">Copy project as JSON</button>
     <button id="mImport">Import project JSON…</button>
+    <button id="mIfcImport">Import IFC (BIM)…</button>
     <hr>
     <button id="mWallTypes">Wall types and U-values…</button>
     <button id="mQto">Quantities and cost…</button>
@@ -639,6 +640,32 @@ function stairGeo(s) {
     default: return { a: [cx, s.y + s.h], b: [cx, s.y], run: s.h, width: s.w, ax: 'y' };
   }
 }
+// Stair as a list of steps (each a plan rectangle with its riser index); straight, L (quarter landing) or U (half landing)
+function stairSteps(s) {
+  const n = risers(s), hz = s.dir === 'n' || s.dir === 's', Wl = hz ? s.w : s.h, Rf = hz ? s.h : s.w, fw = Math.min(Math.max(s.fw || 1, .6), Wl), mir = s.turn === 'l';
+  const Pt = (lx, ly) => { if (mir) lx = Wl - lx; switch (s.dir) { case 's': return [s.x + s.w - lx, s.y + ly]; case 'e': return [s.x + ly, s.y + lx]; case 'w': return [s.x + s.w - ly, s.y + s.h - lx]; default: return [s.x + lx, s.y + s.h - ly]; } };
+  const Rc = (lx0, ly0, lx1, ly1, i, d, land) => { const a = Pt(lx0, ly0), b = Pt(lx1, ly1); return { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]), i, d, land: !!land }; };
+  const L1 = Rf - fw;
+  let shape = s.shape === 'L' || s.shape === 'U' ? s.shape : 'straight';
+  if (shape === 'L' && (L1 < .3 || Wl - fw < .3)) shape = 'straight';
+  if (shape === 'U' && (L1 < .3 || Wl < 2 * fw)) shape = 'straight';
+  const steps = []; let path;
+  if (shape === 'straight') { for (let i = 0; i < n; i++) steps.push(Rc(0, Rf * i / n, Wl, Rf * (i + 1) / n, i, Rf / n)); path = [Pt(Wl / 2, 0), Pt(Wl / 2, Rf)]; }
+  else if (shape === 'L') {
+    const L2 = Wl - fw, k = Math.min(n - 2, Math.max(1, Math.round((n - 1) * L1 / (L1 + L2)))), m = n - 1 - k;
+    for (let i = 0; i < k; i++) steps.push(Rc(0, L1 * i / k, fw, L1 * (i + 1) / k, i, L1 / k));
+    steps.push(Rc(0, L1, fw, Rf, k, fw, true));
+    for (let j = 0; j < m; j++) steps.push(Rc(fw + L2 * j / m, L1, fw + L2 * (j + 1) / m, Rf, k + 1 + j, L2 / m));
+    path = [Pt(fw / 2, 0), Pt(fw / 2, L1 + fw / 2), Pt(Wl, L1 + fw / 2)];
+  } else {
+    const k = Math.min(n - 2, Math.max(1, Math.round((n - 1) / 2))), m = n - 1 - k;
+    for (let i = 0; i < k; i++) steps.push(Rc(0, L1 * i / k, fw, L1 * (i + 1) / k, i, L1 / k));
+    steps.push(Rc(0, L1, Wl, Rf, k, fw, true));
+    for (let j = 0; j < m; j++) steps.push(Rc(Wl - fw, L1 - L1 * (j + 1) / m, Wl, L1 - L1 * j / m, k + 1 + j, L1 / m));
+    path = [Pt(fw / 2, 0), Pt(fw / 2, L1 + fw / 2), Pt(Wl - fw / 2, L1 + fw / 2), Pt(Wl - fw / 2, 0)];
+  }
+  return { steps, path, shape, n };
+}
 function furnXY(f, lx, ly) { const a = (f.rot || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [f.x + lx * c - ly * s, f.y + lx * s + ly * c]; }
 const furnCorners = f => [[-f.w / 2, -f.d / 2], [f.w / 2, -f.d / 2], [f.w / 2, f.d / 2], [-f.w / 2, f.d / 2]].map(([x, y]) => furnXY(f, x, y));
 function inFurn(p, f, m = 0) {
@@ -710,7 +737,7 @@ const mk = {
     let o;
     if (kind === 'slab') o = { ...base, t: num(p.t, d.t) };
     if (kind === 'roof') { const rg = p.ridge === 'x' || p.ridge === 'y' ? p.ridge : (d.ridge === 'x' || d.ridge === 'y' ? d.ridge : (base.w >= base.h ? 'x' : 'y')); o = { ...base, pitch: num(p.pitch, d.pitch), base: num(p.base, d.base), shape: ROOF_SHAPES[p.shape] ? p.shape : d.shape, ridge: rg }; if (o.shape === 'shed') o.up = ['n', 'e', 's', 'w'].includes(p.up) ? p.up : 'n'; if (pts) o.shape = 'flat'; }
-    if (kind === 'stair') o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e') };
+    if (kind === 'stair') { o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e') }; if (p.shape === 'L' || p.shape === 'U') { o.shape = p.shape; o.turn = p.turn === 'l' ? 'l' : 'r'; if (num(p.fw, 0) > 0) o.fw = num(p.fw, 1); } }
     if (kind === 'zone') o = { ...base, name: String(p.name || d.name).slice(0, 40), num: p.num ? String(p.num).slice(0, 8) : nextZoneNum(st), c: model.zones.length % ZONE_COLORS.length };
     if (kind === 'site') o = { ...base, setback: Math.max(0, num(p.setback, d.setback)), north: num(p.north, d.north) };
     if (pts && kind !== 'stair') setPts(o, pts);
@@ -756,7 +783,9 @@ const FT = (key, label, o = {}) => ({ key, label, type: 'text', info: true, tmpl
 const XY = (k, l) => F(k, l, { tmpl: false, info: false, min: -1e4, max: 1e4 });
 const stairW = { get: o => o.dir ? (o.dir === 'n' || o.dir === 's' ? o.w : o.h) : o.w, set: (o, v) => { if (!o.dir) { o.w = v; return; } if (o.dir === 'n' || o.dir === 's') { const c = o.x + o.w / 2; o.w = v; o.x = r3(c - v / 2); } else { const c = o.y + o.h / 2; o.h = v; o.y = r3(c - v / 2); } } };
 const FIELDS = {
-  wall: [FS('wt', 'Wall type', null, { choicesFn: () => ({ '': 'Basic (one material)', ...Object.fromEntries((model.wallTypes || []).map(t => [t.id, t.name])) }), get: o => o.wt || '', set: (o, v) => { if (!v) { delete o.wt; return; } const T = wtById(v); if (!T) return; o.wt = v; o.t = wtThick(T); const core = T.layers.filter(l => MATS[l.m]).sort((a, b) => b.t - a.t)[0]; if (core) o.mat = core.m; } }),
+  wall: [FS('wt', 'Wall type', null, { choicesFn: () => ({ '': 'Basic (one material)', ...Object.fromEntries((model.wallTypes || []).map(t => [t.id, t.name])) }), get: o => o.wt || '', set: (o, v) => { if (!v) { delete o.wt; return; } const T = wtById(v); if (!T) return; o.wt = v; delete o.cw; o.t = wtThick(T); const core = T.layers.filter(l => MATS[l.m]).sort((a, b) => b.t - a.t)[0]; if (core) o.mat = core.m; } }),
+    FS('cw', 'Facade', { '': 'Solid wall', 1: 'Curtain wall' }, { tmpl: false, get: o => o.cw ? '1' : '', set: (o, v) => { if (v) { o.cw = 1; delete o.wt; o.t = .12; o.cwx = o.cwx || 1.5; o.cwz = o.cwz || 1; } else delete o.cw; } }),
+    F('cwx', 'Mullion spacing', { tmpl: false, min: .3, max: 6, when: o => !!o.cw, get: o => o.cwx || 1.5 }), F('cwz', 'Transom spacing', { tmpl: false, min: .3, max: 6, when: o => !!o.cw, get: o => o.cwz || 1 }),
     F('t', 'Thickness', { step: .01, max: 2, when: o => !o.wt }), F('t', 'Thickness', { ro: true, tmpl: false, when: o => !!o.wt }), F('h', 'Height', { max: 30 }), FS('mat', 'Cut fill', MATS, { when: o => !o.wt }), FS('fin', 'Finish (3D)', FINISHES, { get: o => o.fin || '' }),
     F('u', 'U-value', { tmpl: false, ro: true, unit: 'W/m²K', dec: 2, get: w => uOfWall(w) }),
     F('len', 'Length', { tmpl: false, get: w => wlen(w), set: (w, v) => { const g = wgeo(w); w.x2 = r3(w.x1 + g.ux * v); w.y2 = r3(w.y1 + g.uy * v); } }),
@@ -772,6 +801,9 @@ const FIELDS = {
     F('w', 'Width', { tmpl: false, when: o => !o.pts }), F('h', 'Depth', { tmpl: false, when: o => !o.pts }), XY('x', 'Left x'), XY('y', 'Top y')],
   stair: [F('width', 'Width', stairW), F('run', 'Run length', { tmpl: false, get: o => stairGeo(o).run, set: (o, v) => { if (o.dir === 'n' || o.dir === 's') o.h = v; else o.w = v; } }),
     FS('dir', 'Goes up to', { n: 'North ↑', e: 'East →', s: 'South ↓', w: 'West ←' }, { tmpl: false, set: (o, v) => { const W = stairW.get(o), R = stairGeo(o).run, cx = o.x + o.w / 2, cy = o.y + o.h / 2; o.dir = v; if (v === 'n' || v === 's') { o.w = W; o.h = R; } else { o.w = R; o.h = W; } o.x = r3(cx - o.w / 2); o.y = r3(cy - o.h / 2); } }),
+    FS('shape', 'Shape', { straight: 'Straight', L: 'L · quarter landing', U: 'U · half landing' }, { tmpl: false, get: o => o.shape || 'straight' }),
+    FS('turn', 'Turns', { r: 'Right', l: 'Left' }, { tmpl: false, when: o => o.shape === 'L' || o.shape === 'U', get: o => o.turn || 'r' }),
+    F('fw', 'Flight width', { tmpl: false, min: .6, max: 3, when: o => o.shape === 'L' || o.shape === 'U', get: o => o.fw || 1 }),
     F('risers', 'Risers', { tmpl: false, ro: true, unit: '', dec: 0, get: o => risers(o) })],
   zone: [FT('name', 'Name'), FT('num', 'Number', { tmpl: false }), FS('floor', 'Floor finish', FLOORS, { get: o => o.floor || '' }), FT('fin', 'Wall/ceiling finish', { tmpl: false, info: false, ml: 60, get: o => o.fin || '' }), F('w', 'Width', { tmpl: false, when: o => !o.pts }), F('h', 'Depth', { tmpl: false, when: o => !o.pts }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: areaOf }), XY('x', 'Left x'), XY('y', 'Top y')],
   furn: [FS('type', 'Object', Object.fromEntries(Object.entries(FURN).map(([k, v]) => [k, v.label])), { set: (o, v) => { const c = FURN[v]; if (!c) return; o.type = v; o.w = c.w; o.d = c.d; o.h = c.h; o.elev = c.elev || 0; if (c.mill) { o.doors = c.doors; o.plinth = c.plinth; } else { delete o.doors; delete o.plinth; } } }),
@@ -970,6 +1002,7 @@ $('#mImport').onclick = () => {
   openDialog('Import project', 'copy', `<p class="intro">Paste a project you copied from Pocket BIM.</p><textarea id="impTxt" placeholder='{"name":…,"stories":[…]}'></textarea>`,
     [['Import', true, () => { try { const m = migrate(JSON.parse($('#impTxt').value)); if (!m) throw 0; closeDialog(); replaceModel(m, 'Project imported'); } catch (e) { toast('That text is not a Pocket BIM project'); } }]]);
 };
+$('#mIfcImport').onclick = openIfcImport;
 $('#mExport').onclick = () => { $('#menu').hidden = true; openExport(); };
 $('#mWallTypes').onclick = () => openWallTypes();
 $('#mQto').onclick = () => openQto();
@@ -1253,7 +1286,7 @@ function fitView() {
   const r = cv.getBoundingClientRect(); if (!r.width) return;
   const xs = [], ys = [];
   for (const w of model.walls) if (w.st === curStory) { xs.push(w.x1, w.x2); ys.push(w.y1, w.y2); }
-  for (const k of ['zones', 'slabs', 'roofs']) for (const o of model[k]) if (o.st === curStory) { xs.push(o.x, o.x + o.w); ys.push(o.y, o.y + o.h); }
+  for (const k of ['zones', 'slabs', 'roofs', 'stairs']) for (const o of model[k]) if (o.st === curStory) { xs.push(o.x, o.x + o.w); ys.push(o.y, o.y + o.h); }
   if (!xs.length) for (const w of model.walls) { xs.push(w.x1, w.x2); ys.push(w.y1, w.y2); }
   if (!xs.length) { xs.push(0, 10); ys.push(0, 8); }
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -1317,7 +1350,8 @@ function draw() {
   const wall0 = E('wall').sort((a, b) => wallPriority(a) - wallPriority(b)), wdemo = wall0.filter(w => renoStyle(w) === 'demo'), ws = wall0.filter(w => renoStyle(w) !== 'demo'), quads = new Map(wall0.map(w => [w, wallQuad(w)]));
   ctx.lineJoin = 'miter'; ctx.strokeStyle = colors.ink; ctx.lineWidth = lw * 2;
   for (const w of ws) { poly(quads.get(w)); ctx.stroke(); }
-  for (const w of ws) { poly(quads.get(w)); ctx.fillStyle = renoStyle(w) === 'exist' ? (colors.exist || '#9aa0a8') : pats[w.mat] || pats.brick; ctx.fill(); }
+  for (const w of ws) { poly(quads.get(w)); ctx.fillStyle = renoStyle(w) === 'exist' ? (colors.exist || '#9aa0a8') : w.cw ? 'rgba(150,200,225,.5)' : pats[w.mat] || pats.brick; ctx.fill(); }
+  for (const w of ws) if (w.cw) { const g = wgeo(w), P = (t, n) => [w.x1 + g.ux * t + g.nx * n, w.y1 + g.uy * t + g.ny * n], nx = Math.max(1, Math.round(g.L / (w.cwx || 1.5))); ctx.strokeStyle = colors.ink; ctx.lineWidth = .8; seg(P(0, 0), P(g.L, 0)); for (let i = 0; i <= nx; i++) { const t = g.L * i / nx; seg(P(t, w.t / 2), P(t, -w.t / 2)); } }
   for (const w of wdemo) { poly(quads.get(w)); ctx.strokeStyle = colors.danger; ctx.lineWidth = lw; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]); }
   if (s > 45 || EXP.on && opts.scale <= 50) for (const w of ws) { const B = !renoStyle(w) && wallBands(w); if (!B) continue; const g = wgeo(w), P = (t, n) => [w.x1 + g.ux * t + g.nx * n, w.y1 + g.uy * t + g.ny * n], e = w.t;
     ctx.save(); poly(quads.get(w)); ctx.clip();
@@ -1438,15 +1472,12 @@ function drawFurn(f, color) {
   ctx.restore();
 }
 function drawStair(sr, ghost) {
-  const g = stairGeo(sr), n = risers(sr);
+  const G = stairSteps(sr);
   ctx.strokeStyle = ghost ? colors.trace : colors.ink; ctx.lineWidth = ghost ? 1 : .9;
-  rectPath(sr); ctx.stroke();
-  for (let i = 1; i < n; i++) {
-    if (g.ax === 'y') { const y = sr.y + sr.h * i / n; seg([sr.x, y], [sr.x + sr.w, y]); } else { const x = sr.x + sr.w * i / n; seg([x, sr.y], [x, sr.y + sr.h]); }
-  }
+  for (const t of G.steps) { rectPath({ x: t.x0, y: t.y0, w: t.x1 - t.x0, h: t.y1 - t.y0 }); ctx.stroke(); }
   if (ghost) return;
-  ctx.lineWidth = 1.1; seg(g.a, g.b);
-  const [ax, ay] = toS(g.a[0], g.a[1]), [bx, by] = toS(g.b[0], g.b[1]), an = Math.atan2(by - ay, bx - ax);
+  ctx.lineWidth = 1.1; const pa = G.path; for (let i = 1; i < pa.length; i++) seg(pa[i - 1], pa[i]);
+  const [ax, ay] = toS(pa[0][0], pa[0][1]), [bx, by] = toS(pa[pa.length - 1][0], pa[pa.length - 1][1]), [px, py] = toS(pa[pa.length - 2][0], pa[pa.length - 2][1]), an = Math.atan2(by - py, bx - px);
   ctx.beginPath(); ctx.arc(ax, ay, 3, 0, 7); ctx.fillStyle = colors.ink; ctx.fill();
   ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - 9 * Math.cos(an - .45), by - 9 * Math.sin(an - .45)); ctx.moveTo(bx, by); ctx.lineTo(bx - 9 * Math.cos(an + .45), by - 9 * Math.sin(an + .45)); ctx.stroke();
 }
@@ -2085,6 +2116,174 @@ function zipStore(name, bytes) {
   E.setUint32(0, 0x06054b50, true); E.setUint16(8, 1, true); E.setUint16(10, 1, true); E.setUint32(12, cdLen, true); E.setUint32(16, cdOff, true);
   return new Blob([L, nm, bytes, C, nm, new Uint8Array(E.buffer)], { type: 'application/zip' });
 }
+// ---------- IFC 4 (STEP) export and import ----------
+const IFCB64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
+function ifcGuid() { const b = new Uint8Array(16); (crypto || window.crypto).getRandomValues(b); let n = 0n; for (const x of b) n = (n << 8n) | BigInt(x); let s = ''; for (let i = 0; i < 22; i++) { s = IFCB64[Number(n & 63n)] + s; n >>= 6n; } return s; }
+const ifcStr = v => v == null || v === '' ? '$' : "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/[^\x20-\x7e]/g, ch => '\\X2\\' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0') + '\\X0\\') + "'";
+const ifcNum = v => { v = +v || 0; v = Math.abs(v) < 1e-9 ? 0 : v; const s = v.toFixed(6).replace(/0+$/, ''); return s.endsWith('.') ? s : s; };
+function buildIFC() {
+  const L = []; let n = 0; const add = s => { L.push(`#${++n}=${s};`); return '#' + n; }, F = ifcNum, G = ifcGuid;
+  const P2 = (x, y) => add(`IFCCARTESIANPOINT((${F(x)},${F(y)}))`), P3 = (x, y, z) => add(`IFCCARTESIANPOINT((${F(x)},${F(y)},${F(z)}))`), D3 = (x, y, z) => add(`IFCDIRECTION((${F(x)},${F(y)},${F(z)}))`);
+  const A3 = (x, y, z, ax, ref) => add(`IFCAXIS2PLACEMENT3D(${P3(x, y, z)},${ax ? D3(...ax) : '$'},${ref ? D3(...ref) : '$'})`);
+  const LP = (rel, ax) => add(`IFCLOCALPLACEMENT(${rel || '$'},${ax})`);
+  const m = model, nm = (m.name || 'Pocket BIM project');
+  const ctx = add(`IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-5,${A3(0, 0, 0)},$)`);
+  const sub = add(`IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,${ctx},$,.MODEL_VIEW.,$)`);
+  const units = add(`IFCUNITASSIGNMENT((${add('IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)')},${add('IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.)')},${add('IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.)')},${add('IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.)')}))`);
+  const proj = add(`IFCPROJECT('${G()}',$,${ifcStr(nm)},$,$,$,$,(${ctx}),${units})`);
+  const sitePl = LP(null, A3(0, 0, 0)), site = add(`IFCSITE('${G()}',$,'Site',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`);
+  const bldPl = LP(sitePl, A3(0, 0, 0)), bld = add(`IFCBUILDING('${G()}',$,${ifcStr(nm)},$,$,${bldPl},$,$,.ELEMENT.,$,$,$)`);
+  add(`IFCRELAGGREGATES('${G()}',$,$,$,${proj},(${site}))`); add(`IFCRELAGGREGATES('${G()}',$,$,$,${site},(${bld}))`);
+  const rect = (dx, dy, cx = 0, cy = 0) => add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${P2(cx, cy)},$)`)},${F(dx)},${F(dy)})`);
+  const poly = pts => add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${add(`IFCPOLYLINE((${pts.concat([pts[0]]).map(([x, y]) => P2(x, -y)).join(',')}))`)})`);
+  const solid = (prof, depth, pos) => add(`IFCEXTRUDEDAREASOLID(${prof},${pos || A3(0, 0, 0)},${D3(0, 0, 1)},${F(depth)})`);
+  const shape = solids => add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solids.join(',')}))`)}))`);
+  const stRef = new Map(); const stories = m.stories.slice().sort((a, b) => a.elev - b.elev), cont = new Map();
+  const stIds = [];
+  for (const s of stories) { const pl = LP(bldPl, A3(0, 0, s.elev)); const id = add(`IFCBUILDINGSTOREY('${G()}',$,${ifcStr(s.name)},$,$,${pl},$,$,.ELEMENT.,${F(s.elev)})`); stRef.set(s.id, { id, pl, elev: s.elev, h: s.h }); cont.set(s.id, []); stIds.push(id); }
+  add(`IFCRELAGGREGATES('${G()}',$,$,$,${bld},(${stIds.join(',')}))`);
+  const put = (st, id) => cont.get(st).push(id);
+  const prop = (el, name, val, kind = 'IFCTHERMALTRANSMITTANCEMEASURE') => { const ps = add(`IFCPROPERTYSET('${G()}',$,'Pset_Pocket',$,(${add(`IFCPROPERTYSINGLEVALUE(${ifcStr(name)},$,${kind}(${F(val)}),$)`)}))`); add(`IFCRELDEFINESBYPROPERTIES('${G()}',$,$,$,(${el}),${ps})`); };
+  const cnt = {};
+  const tag = (k, o) => `${k} ${(cnt[k] = (cnt[k] || 0) + 1)}`;
+  const wallEl = new Map(), wallPl = new Map();
+  for (const w of m.walls) {
+    const S = stRef.get(w.st); if (!S) continue; const g = wgeo(w), pl = LP(S.pl, A3(w.x1, -w.y1, 0, [0, 0, 1], [g.ux, -g.uy, 0]));
+    const T = wtById(w.wt), el = add(`IFCWALL('${G()}',$,${ifcStr(tag('Wall', w))},$,${ifcStr(T ? T.name : (w.cw ? 'Curtain wall' : null))},${pl},${shape([solid(rect(g.L, w.t, g.L / 2, 0), w.h)])},$,.STANDARD.)`);
+    wallEl.set(w.id, el); wallPl.set(w.id, pl); put(w.st, el); if (!w.cw) prop(el, 'ThermalTransmittance', uOfWall(w));
+  }
+  for (const o of m.openings) {
+    const w = m.walls.find(x => x.id === o.wid); if (!w || !wallEl.has(w.id)) continue; const pl = LP(wallPl.get(w.id), A3(o.pos, 0, o.sill));
+    const op = add(`IFCOPENINGELEMENT('${G()}',$,'Opening',$,$,${pl},${shape([solid(rect(o.w, w.t + .1), o.h)])},$,.OPENING.)`);
+    add(`IFCRELVOIDSELEMENT('${G()}',$,$,$,${wallEl.get(w.id)},${op})`);
+    const door = o.type === 'door', dep = Math.max(.04, Math.min(w.t, .12)), el = add(door
+      ? `IFCDOOR('${G()}',$,${ifcStr(tag('Door', o))},$,$,${pl},${shape([solid(rect(o.w, dep), o.h)])},$,${F(o.h)},${F(o.w)},.DOOR.,.NOTDEFINED.,$)`
+      : `IFCWINDOW('${G()}',$,${ifcStr(tag('Window', o))},$,$,${pl},${shape([solid(rect(o.w, dep), o.h)])},$,${F(o.h)},${F(o.w)},.WINDOW.,.NOTDEFINED.,$)`);
+    add(`IFCRELFILLSELEMENT('${G()}',$,$,$,${op},${el})`); put(w.st, el);
+  }
+  const body = (k, st, depth, z, pts) => { const S = stRef.get(st); return { S, pl: LP(S.pl, A3(0, 0, z)), sh: shape([solid(poly(pts), depth)]) }; };
+  for (const s of m.slabs) { if (!stRef.has(s.st)) continue; const b = body('slab', s.st, s.t, -s.t, rectCorners(s)); const el = add(`IFCSLAB('${G()}',$,${ifcStr(tag('Slab', s))},$,$,${b.pl},${b.sh},$,.FLOOR.)`); put(s.st, el); }
+  for (const z of m.zones) { if (!stRef.has(z.st)) continue; const b = body('zone', z.st, Math.max(.05, stRef.get(z.st).h - .05), 0, rectCorners(z)); const el = add(`IFCSPACE('${G()}',$,${ifcStr((z.num ? z.num + ' ' : '') + z.name)},$,$,${b.pl},${b.sh},$,.ELEMENT.,.INTERNAL.,$)`); put(z.st, el); }
+  for (const r of m.roofs) {
+    const S = stRef.get(r.st); if (!S) continue; const rad = (r.pitch || 0) * Math.PI / 180;
+    let el;
+    if (!r.pts && r.shape === 'gable' && r.pitch > 0) {
+      const ax = r.ridge === 'x' || (r.ridge !== 'y' && r.w >= r.h), across = ax ? r.h : r.w, rise = across / 2 * Math.tan(rad), len = ax ? r.w : r.h;
+      const prof = add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${add(`IFCPOLYLINE((${P2(-across / 2, 0)},${P2(across / 2, 0)},${P2(0, rise)},${P2(-across / 2, 0)}))`)})`);
+      const pos = ax ? A3(r.x, -(r.y + r.h / 2), r.base, [1, 0, 0], [0, 1, 0]) : A3(r.x + r.w / 2, -r.y, r.base, [0, -1, 0], [1, 0, 0]);
+      el = add(`IFCROOF('${G()}',$,${ifcStr(tag('Roof', r))},$,$,${LP(S.pl, A3(0, 0, 0))},${shape([solid(prof, len, pos)])},$,.GABLE_ROOF.)`);
+    } else if (!r.pts && r.shape === 'shed' && r.pitch > 0) {
+      const up = r.up || 'n', ns = up === 'n' || up === 's', across = ns ? r.h : r.w, rise = across * Math.tan(rad), len = ns ? r.w : r.h;
+      const prof = add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${add(`IFCPOLYLINE((${P2(-across / 2, 0)},${P2(across / 2, 0)},${P2(across / 2, rise)},${P2(-across / 2, 0)}))`)})`);
+      // local u (across) must point toward the high side; ns: extrude along +x, u = plan -y for 'n' (ifc +y), plan +y for 's'
+      const pos = ns ? A3(r.x, -(r.y + r.h / 2), r.base, [1, 0, 0], up === 'n' ? [0, 1, 0] : [0, -1, 0]) : A3(r.x + r.w / 2, -r.y, r.base, [0, -1, 0], up === 'e' ? [1, 0, 0] : [-1, 0, 0]);
+      el = add(`IFCROOF('${G()}',$,${ifcStr(tag('Roof', r))},$,$,${LP(S.pl, A3(0, 0, 0))},${shape([solid(prof, len, pos)])},$,.SHED_ROOF.)`);
+    } else { const b = body('roof', r.st, .25, r.base, rectCorners(r)); el = add(`IFCROOF('${G()}',$,${ifcStr(tag('Roof', r))},$,$,${b.pl},${b.sh},$,.FLAT_ROOF.)`); }
+    put(r.st, el);
+  }
+  for (const c of m.columns) { const S = stRef.get(c.st); if (!S) continue; const pl = LP(S.pl, A3(c.x, -c.y, 0)); const prof = c.round ? add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${P2(0, 0)},$)`)},${F(c.w / 2)})`) : rect(c.w, c.d); put(c.st, add(`IFCCOLUMN('${G()}',$,${ifcStr(tag('Column', c))},$,$,${pl},${shape([solid(prof, c.h)])},$,.COLUMN.)`)); }
+  for (const b of m.beams) { const S = stRef.get(b.st); if (!S) continue; const L2 = Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || .1, ux = (b.x2 - b.x1) / L2, uy = (b.y2 - b.y1) / L2, pl = LP(S.pl, A3(b.x1, -b.y1, b.top - b.h, [0, 0, 1], [ux, -uy, 0])); put(b.st, add(`IFCBEAM('${G()}',$,${ifcStr(tag('Beam', b))},$,$,${pl},${shape([solid(rect(L2, b.w, L2 / 2, 0), b.h)])},$,.BEAM.)`)); }
+  for (const rl of m.rails) { const S = stRef.get(rl.st); if (!S) continue; const L2 = Math.hypot(rl.x2 - rl.x1, rl.y2 - rl.y1) || .1, ux = (rl.x2 - rl.x1) / L2, uy = (rl.y2 - rl.y1) / L2, pl = LP(S.pl, A3(rl.x1, -rl.y1, 0, [0, 0, 1], [ux, -uy, 0])); put(rl.st, add(`IFCRAILING('${G()}',$,${ifcStr(tag('Railing', rl))},$,$,${pl},${shape([solid(rect(L2, .05, L2 / 2, 0), rl.h)])},$,.GUARDRAIL.)`)); }
+  for (const s of m.stairs) {
+    const S = stRef.get(s.st); if (!S) continue; const G2 = stairSteps(s), rh = S.h / G2.n, pl = LP(S.pl, A3(0, 0, 0));
+    const sol = G2.steps.map(t => solid(rect(t.x1 - t.x0, t.y1 - t.y0, (t.x0 + t.x1) / 2, -(t.y0 + t.y1) / 2), (t.i + 1) * rh));
+    put(s.st, add(`IFCSTAIR('${G()}',$,${ifcStr(tag('Stair', s))},$,$,${pl},${shape(sol)},$,${G2.shape === 'L' ? '.QUARTER_TURN_STAIR.' : G2.shape === 'U' ? '.HALF_TURN_STAIR.' : '.STRAIGHT_RUN_STAIR.'})`));
+  }
+  for (const f of m.furniture) { const S = stRef.get(f.st); if (!S) continue; const a = (f.rot || 0) * Math.PI / 180, pl = LP(S.pl, A3(f.x, -f.y, f.elev || 0, [0, 0, 1], [Math.cos(a), -Math.sin(a), 0])); put(f.st, add(`IFCFURNISHINGELEMENT('${G()}',$,${ifcStr((f.type || 'Object') + ' ' + ((cnt.f = (cnt.f || 0) + 1)))},$,$,${pl},${shape([solid(rect(f.w, f.d), f.h)])},$)`)); }
+  for (const [sid, list] of cont) if (list.length) add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${G()}',$,$,$,(${list.join(',')}),${stRef.get(sid).id})`);
+  const head = `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');\nFILE_NAME(${ifcStr(slug(nm) + '.ifc')},'${new Date().toISOString().slice(0, 19)}',(''),(''),'Pocket BIM','Pocket BIM','');\nFILE_SCHEMA(('IFC4'));\nENDSEC;\nDATA;\n`;
+  return head + L.join('\n') + '\nENDSEC;\nEND-ISO-10303-21;\n';
+}
+// --- import: reads walls, slabs, roofs (as flat), spaces, columns, doors, windows and storeys from an IFC STEP file
+function ifcParse(text) {
+  const ents = new Map(), src = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\r?\n/g, ''), i0 = src.indexOf('DATA;'); if (i0 < 0) throw new Error('no DATA');
+  let pos = i0 + 5;
+  const ws = () => { while (pos < src.length && src[pos] === ' ') pos++; };
+  const val = () => {
+    ws(); const c = src[pos];
+    if (c === '(') { pos++; const a = []; ws(); if (src[pos] === ')') { pos++; return a; } for (;;) { a.push(val()); ws(); if (src[pos] === ',') { pos++; continue; } if (src[pos] === ')') { pos++; return a; } throw new Error('list'); } }
+    if (c === "'") { let s = ''; pos++; for (;;) { if (src[pos] === "'") { if (src[pos + 1] === "'") { s += "'"; pos += 2; continue; } pos++; break; } s += src[pos++]; } return s; }
+    if (c === '#') { let j = pos + 1; while (/\d/.test(src[j])) j++; const r = { ref: +src.slice(pos + 1, j) }; pos = j; return r; }
+    if (c === '$' || c === '*') { pos++; return null; }
+    if (c === '.') { let j = pos + 1; while (src[j] !== '.') j++; const e = src.slice(pos, j + 1); pos = j + 1; return e; }
+    let j = pos; while (j < src.length && !',)'.includes(src[j])) j++; const tok = src.slice(pos, j).trim(); pos = j;
+    if (/^[A-Z0-9_]+$/i.test(tok) && isNaN(+tok)) { if (src[pos] === '(') { const a = val(); return { t: tok, a }; } return tok; }
+    return +tok;
+  };
+  while (pos < src.length) {
+    ws(); if (src.startsWith('ENDSEC', pos)) break; if (src[pos] !== '#') { pos++; continue; }
+    let j = pos + 1; while (/\d/.test(src[j])) j++; const id = +src.slice(pos + 1, j); pos = j; ws(); if (src[pos] !== '=') continue; pos++; ws();
+    let k = pos; while (/[A-Z0-9_]/i.test(src[k])) k++; const t = src.slice(pos, k).toUpperCase(); pos = k; ws();
+    if (src[pos] !== '(') { while (pos < src.length && src[pos] !== ';') pos++; pos++; continue; }
+    let a; try { a = val(); } catch (e) { while (pos < src.length && src[pos] !== ';') pos++; pos++; continue; } ents.set(id, { t, a }); ws(); if (src[pos] === ';') pos++;
+  }
+  return ents;
+}
+function importIFC(text) {
+  const E = ifcParse(text), get = r => r && r.ref != null ? E.get(r.ref) : null, arr = v => Array.isArray(v) ? v : [];
+  let sc = 1; for (const e of E.values()) { if (e.t === 'IFCSIUNIT' && e.a[1] === '.LENGTHUNIT.') { sc = { '.MILLI.': .001, '.CENTI.': .01, '.DECI.': .1 }[e.a[2]] || 1; } if (e.t === 'IFCCONVERSIONBASEDUNIT' && e.a[0] === '.LENGTHUNIT.') { const nm = String(e.a[1] || '').toUpperCase(); sc = /FOOT|FEET/.test(nm) ? .3048 : /INCH/.test(nm) ? .0254 : sc; } }
+  const dir = r => { const d = get(r); return d ? d.a[0] : null; };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], nrm = a => { const l = Math.hypot(...a) || 1; return a.map(x => x / l); };
+  const ID = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], t: [0, 0, 0] };
+  const mul = (A, B) => ({ x: ap(A, B.x, 0), y: ap(A, B.y, 0), z: ap(A, B.z, 0), t: ap(A, B.t, 1) });
+  const ap = (A, p, w = 1) => [A.x[0] * p[0] + A.y[0] * p[1] + A.z[0] * p[2] + A.t[0] * w, A.x[1] * p[0] + A.y[1] * p[1] + A.z[1] * p[2] + A.t[1] * w, A.x[2] * p[0] + A.y[2] * p[1] + A.z[2] * p[2] + A.t[2] * w];
+  const axis3 = r => { const e = get(r); if (!e) return ID; const loc = (dir(e.a[0]) || [0, 0, 0]).map(v => v * sc); while (loc.length < 3) loc.push(0); const z = nrm(dir(e.a[1]) || [0, 0, 1]); let x = dir(e.a[2]) || [1, 0, 0]; const k = dot(x, z); x = nrm([x[0] - k * z[0], x[1] - k * z[1], x[2] - k * z[2]]); return { x, y: cross(z, x), z, t: loc }; };
+  const memo = new Map(); const place = r => { const e = get(r); if (!e || e.t !== 'IFCLOCALPLACEMENT') return ID; if (memo.has(r.ref)) return memo.get(r.ref); const M = mul(place(e.a[0]), axis3(e.a[1])); memo.set(r.ref, M); return M; };
+  const prof2 = r => { // -> local polygon [[x,y]] in the solid's xy plane
+    const e = get(r); if (!e) return null; const pe = e.t.startsWith('IFCARBITRARY') ? null : get(e.a[2]); const P = pe && pe.t === 'IFCAXIS2PLACEMENT2D' ? ((dir(pe.a[0]) || [0, 0]).map(v => v * sc)) : [0, 0], rf = pe && pe.a[1] ? dir(pe.a[1]) : [1, 0], rx = nrm([rf[0], rf[1], 0]), ry = [-rx[1], rx[0]];
+    const T = ([x, y]) => [P[0] + x * rx[0] + y * ry[0], P[1] + x * rx[1] + y * ry[1]];
+    if (e.t === 'IFCRECTANGLEPROFILEDEF') { const dx = e.a[3] * sc / 2, dy = e.a[4] * sc / 2; return [[-dx, -dy], [dx, -dy], [dx, dy], [-dx, dy]].map(T); }
+    if (e.t === 'IFCCIRCLEPROFILEDEF') { const R = e.a[3] * sc; return [[-R, -R], [R, -R], [R, R], [-R, R]].map(T); }
+    if (e.t === 'IFCARBITRARYCLOSEDPROFILEDEF' || e.t === 'IFCARBITRARYPROFILEDEFWITHVOIDS') { const pl = get(e.a[2]); if (!pl || pl.t !== 'IFCPOLYLINE') return null; const pts = arr(pl.a[0]).map(q => (dir(q) || [0, 0]).map(v => v * sc)); if (pts.length > 1 && Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < 1e-6) pts.pop(); return pts.length > 2 ? pts : null; }
+    return null;
+  };
+  const body = el => { // world footprint polygon, base z, depth, axis along x (first edge direction) for a product
+    const ps = get(el.a[6]); if (!ps) return null; const M0 = place(el.a[5]);
+    for (const rr of arr(ps.a[2])) { const re = get(rr); if (!re) continue; for (let it of arr(re.a[3])) { let s = get(it); while (s && (s.t === 'IFCBOOLEANCLIPPINGRESULT' || s.t === 'IFCBOOLEANRESULT')) s = get(s.a[1]); if (!s || s.t !== 'IFCEXTRUDEDAREASOLID') continue;
+      const poly = prof2(s.a[0]); if (!poly) continue; const M = mul(M0, axis3(s.a[1])); const w = poly.map(([x, y]) => ap(M, [x, y, 0])), z0 = ap(M, [0, 0, 0])[2], ed = dir(s.a[2]) || [0, 0, 1], edw = ap({ x: M.x, y: M.y, z: M.z, t: [0, 0, 0] }, nrm(ed)), dz = edw[2], depth = Math.abs(s.a[3] * sc), zb = dz < 0 ? z0 - depth : z0;
+      if (Math.abs(dz) < .7) { const all = w.concat(w.map(q => [q[0] + edw[0] * depth, q[1] + edw[1] * depth, q[2] + edw[2] * depth])), bb = bboxOf(all.map(q => [q[0], -q[1]])), zs = all.map(q => q[2]); return { pts: [[bb.x, bb.y], [bb.x + bb.w, bb.y], [bb.x + bb.w, bb.y + bb.h], [bb.x, bb.y + bb.h]], z0: Math.min(...zs), depth: Math.max(...zs) - Math.min(...zs), ux: [1, 0] }; }
+      return { pts: w.map(q => [q[0], -q[1]]), z0: zb, depth, ux: [M.x[0], -M.x[1]] }; } }
+    return null;
+  };
+  const stRaw = [...E.entries()].filter(([, e]) => e.t === 'IFCBUILDINGSTOREY').map(([id, e]) => ({ name: e.a[2] || 'Storey', elev: (typeof e.a[9] === 'number' ? e.a[9] * sc : place(e.a[5]).t[2]) })).sort((a, b) => a.elev - b.elev);
+  const prods = [...E.values()].filter(e => /^IFC(WALL|WALLSTANDARDCASE|SLAB|ROOF|SPACE|COLUMN|DOOR|WINDOW)$/.test(e.t));
+  const found = prods.map(e => ({ e, b: body(e) })).filter(x => x.b);
+  if (!found.length) throw new Error('No supported geometry');
+  if (!stRaw.length) stRaw.push({ name: 'Ground Floor', elev: Math.min(...found.map(x => x.b.z0)) });
+  const mdl = emptyModel(); mdl.name = ([...E.values()].find(e => e.t === 'IFCPROJECT') || { a: [] }).a[2] || 'IFC import'; mdl.stories = stRaw.map((s, i) => ({ id: uid(), name: s.name, elev: r3(s.elev), h: r3(i + 1 < stRaw.length ? stRaw[i + 1].elev - s.elev : 3) }));
+  migrate(mdl);
+  const storyFor = z => { let k = 0; for (let i = 0; i < stRaw.length; i++) if (stRaw[i].elev <= z + .15) k = i; return mdl.stories[k]; };
+  const saveModel = model, wallsBy = []; model = mdl;
+  try {
+    for (const { e, b } of found) {
+      const st = storyFor(b.z0).id, pts = b.pts;
+      if (e.t === 'IFCWALL' || e.t === 'IFCWALLSTANDARDCASE') {
+        const ux = nrm([b.ux[0], b.ux[1], 0]), vx = [-ux[1], ux[0]], us = pts.map(p => p[0] * ux[0] + p[1] * ux[1]), vs = pts.map(p => p[0] * vx[0] + p[1] * vx[1]); let u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs), al = ux, pe = vx;
+        if (u1 - u0 < v1 - v0) { [u0, u1, v0, v1] = [v0, v1, u0, u1]; al = vx; pe = [ux[0], ux[1]]; }
+        const vm = (v0 + v1) / 2; const Q = (u, v) => [u * al[0] + v * pe[0], u * al[1] + v * pe[1]];
+        // al/pe are orthonormal, so the point at (u, v) in that frame is u*al + v*pe
+        const a = Q(u0, vm), c = Q(u1, vm); try { const w = mk.wall(st, a[0], a[1], c[0], c[1], { t: Math.max(.05, v1 - v0), h: b.depth || 2.8 }); w.ifc = 1; wallsBy.push(w); } catch (er) { }
+      } else if (e.t === 'IFCSLAB' || e.t === 'IFCROOF' || e.t === 'IFCSPACE') {
+        const kind = e.t === 'IFCSLAB' ? 'slab' : e.t === 'IFCROOF' ? 'roof' : 'zone', S = mdl.stories.find(s => s.id === st), p = { pts };
+        try { if (kind === 'slab') { const o = mk.rect('slab', st, null, { ...p, t: Math.max(.05, b.depth) }); } else if (kind === 'roof') { const o = mk.rect('roof', st, null, { ...p, shape: 'flat', base: r3(b.z0 - S.elev) }); } else { mk.rect('zone', st, null, { ...p, name: String(e.a[2] || 'Room').slice(0, 40) }); } } catch (er) { }
+      } else if (e.t === 'IFCCOLUMN') { const bb = bboxOf(pts); try { mk.column(st, bb.x + bb.w / 2, bb.y + bb.h / 2, { w: bb.w, d: bb.h, h: b.depth }); } catch (er) { } }
+    }
+    for (const { e, b } of found) if (e.t === 'IFCDOOR' || e.t === 'IFCWINDOW') {
+      const c = [pts_avg(b.pts, 0), pts_avg(b.pts, 1)], st = storyFor(b.z0), cand = wallsBy.filter(w => w.st === st.id); let best = null, bd = .6;
+      for (const w of cand) { const g = wgeo(w), t = (c[0] - w.x1) * g.ux + (c[1] - w.y1) * g.uy, d = Math.abs((c[0] - w.x1) * g.nx + (c[1] - w.y1) * g.ny); if (t >= -.05 && t <= g.L + .05 && d < bd + w.t / 2) { bd = d; best = { w, t }; } }
+      if (!best) continue; const door = e.t === 'IFCDOOR', ow = Math.max(.3, +e.a[9] * sc || Math.max(...b.pts.map(p => Math.hypot(p[0] - c[0], p[1] - c[1]))) * 2), oh = Math.max(.3, +e.a[8] * sc || b.depth);
+      try { mk.opening(best.w, door ? 'door' : 'window', r3(best.t), { w: r3(ow), h: r3(oh), sill: door ? 0 : Math.max(0, r3(b.z0 - st.elev)) }); } catch (er) { }
+    }
+  } finally { model = saveModel; }
+  for (const w of wallsBy) delete w.ifc;
+  return mdl;
+}
+const pts_avg = (P, i) => P.reduce((a, p) => a + p[i], 0) / P.length;
+function openIfcImport() {
+  $('#menu').hidden = true; const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.ifc,text/plain'; fi.onchange = async () => {
+    const f = fi.files[0]; if (!f) return; try { const m = importIFC(await f.text()); replaceModel(m, `IFC imported: ${m.walls.length} walls, ${m.slabs.length} slabs, ${m.openings.length} openings`); } catch (e) { toast('Could not read that IFC file'); }
+  }; fi.click();
+}
 async function saveAny(filename, blob) { const dl = await dlP; if (!dl) return saveFile(filename, blob); const bytes = new Uint8Array(await blob.arrayBuffer()); return saveFile(filename.replace(/\.\w+$/, '') + '.zip', zipStore(filename, bytes)); }
 let gltfP = null;
 const loadGLTF = () => gltfP || (gltfP = new Promise((res, rej) => { if (THREE.GLTFExporter) return res(); const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js'; sc.onload = () => THREE.GLTFExporter ? res() : rej(new Error('load')); sc.onerror = () => { gltfP = null; rej(new Error('load')); }; document.head.append(sc); }));
@@ -2161,6 +2360,13 @@ function build3() {
     for (const w of on('wall')) {
       const g = wgeo(w), ry = -Math.atan2(g.uy, g.ux), mat = renoStyle(w) === 'demo' ? demoM : w.fin && FINISHES[w.fin] ? TM(w.fin) : wallMat[w.mat] || wallMat.brick;
       const part = (a, b, y0, y1, m = mat, th = w.t) => { if (b - a < 1e-3 || y1 - y0 < 1e-3) return null; const mid = (a + b) / 2, ms = box(b - a, y1 - y0, th, m, w.x1 + g.ux * mid, e + (y0 + y1) / 2, w.y1 + g.uy * mid, ry); if (m.map) scaleUV(ms.geometry, b - a, y1 - y0, th); return ms; };
+      if (w.cw) {
+        const mid = g.L / 2, gl = box(g.L, w.h, .02, glass, w.x1 + g.ux * mid, e + w.h / 2, w.y1 + g.uy * mid, ry); gl.castShadow = false;
+        const nx = Math.max(1, Math.round(g.L / (w.cwx || 1.5))), nz = Math.max(1, Math.round(w.h / (w.cwz || 1)));
+        for (let i = 0; i <= nx; i++) { const t = g.L * i / nx; box(.06, w.h, w.t, frame, w.x1 + g.ux * t, e + w.h / 2, w.y1 + g.uy * t, ry); }
+        for (let j = 0; j <= nz; j++) box(g.L, .05, w.t * .8, frame, w.x1 + g.ux * mid, e + Math.min(w.h - .025, Math.max(.025, w.h * j / nz)), w.y1 + g.uy * mid, ry);
+        continue;
+      }
       const ops = model.openings.filter(o => o.wid === w.id && phaseVis(o.reno ? o : w)).sort((p, q) => p.pos - q.pos);
       const [e1, e2] = wallEnds(w);
       let cur = -e1;
@@ -2180,12 +2386,8 @@ function build3() {
       part(cur, g.L + e2, 0, w.h);
     }
     for (const s of on('stair')) {
-      const sg = stairGeo(s), n = risers(s), rh = st.h / n, dep = sg.run / n;
-      const dx = (sg.b[0] - sg.a[0]) / sg.run, dz = (sg.b[1] - sg.a[1]) / sg.run;
-      for (let i = 0; i < n; i++) {
-        const along = (i + .5) * dep, hh = (i + 1) * rh, cx = sg.a[0] + dx * along, cz = sg.a[1] + dz * along;
-        box(sg.ax === 'x' ? dep : sg.width, hh, sg.ax === 'x' ? sg.width : dep, stairM, cx, e + hh / 2, cz, 0);
-      }
+      const G = stairSteps(s), rh = st.h / G.n;
+      for (const t of G.steps) { const hh = (t.i + 1) * rh; box(t.x1 - t.x0, hh, t.y1 - t.y0, stairM, (t.x0 + t.x1) / 2, e + hh / 2, (t.y0 + t.y1) / 2, 0); }
     }
     for (const f of on('furn')) buildFurn3(f, e + (f.elev || 0), FM);
     for (const sk of on('sky')) {
@@ -2472,8 +2674,8 @@ function sectionPrims(sec) {
       proj.push(pr);
     }
     for (const s of on('stair')) {
-      const sg = stairGeo(s), n = risers(s), rh = st.h / n, dep = sg.run / n, ux = (sg.b[0] - sg.a[0]) / sg.run, uy = (sg.b[1] - sg.a[1]) / sg.run;
-      const zf = (x, y) => e + Math.min(n, Math.max(1, Math.ceil(((x - sg.a[0]) * ux + (y - sg.a[1]) * uy) / dep - 1e-6))) * rh;
+      const G = stairSteps(s), rh = st.h / G.n, eps = 1e-6;
+      const zf = (x, y) => { const t = G.steps.find(q => x >= q.x0 - eps && x <= q.x1 + eps && y >= q.y0 - eps && y <= q.y1 + eps); return t ? e + (t.i + 1) * rh : e; };
       hf(HD(rectCorners(s)), zf, () => e, true, 'concrete', null);
     }
     for (const z of on('zone')) if (z.ceil != null && z.ceilT !== 'exposed') for (const iv of sliceAll(HD(rectCorners(z)), 1, 0)) cut.push({ pts: R(iv[0], iv[1], e + z.ceil, e + z.ceil + .03), fill: 'gypsum' });
@@ -2767,6 +2969,7 @@ async function exportDrawings(o) {
   let items; const base = slug(model.name);
   if (o.what === 'schedule' && o.fmt === 'csv') { await saveFile(`${base}-schedule.csv`, new Blob([scheduleCSV()], { type: 'text/csv' })); return; }
   if (o.what === 'qto' && o.fmt === 'csv') { await saveFile(`${base}-quantities.csv`, new Blob([qtoCSV()], { type: 'text/csv' })); return; }
+  if (o.what === 'ifc') { await saveAny(`${base}.ifc`, new Blob([buildIFC()], { type: 'application/x-step' })); return; }
   if (o.what === 'dxf') { await saveAny(`${base}-${slug(storyLabel(storyOf(curStory)))}.dxf`, new Blob([planDXF(curStory)], { type: 'application/dxf' })); return; }
   if (o.what === 'plan') items = [{ kind: 'plan', st: curStory }];
   else if (o.what === 'section') { const s = curSecObj(); if (!s) { toast('Draw a section first'); return; } items = [{ kind: 'section', sec: s }]; }
@@ -2794,7 +2997,7 @@ function openExport(preset) {
   const render = () => {
     const sec = curSecObj(), hasSec = !!(sec && !sec.room) || model.sections.length > 0, z = elevZone();
     if (st.what === 'section' && !hasSec) st.what = 'plan'; if (st.what === 'elevs' && !z) st.what = 'plan';
-    const tabular = st.what === 'schedule' || st.what === 'qto'; if (st.what === 'dxf') st.fmt = 'dxf'; else if (st.fmt === 'dxf') st.fmt = 'pdf';
+    const tabular = st.what === 'schedule' || st.what === 'qto'; if (st.what === 'dxf') st.fmt = 'dxf'; else if (st.what === 'ifc') st.fmt = 'ifc'; else if (st.fmt === 'dxf' || st.fmt === 'ifc') st.fmt = 'pdf';
     if (st.fmt === 'csv' && !tabular) st.fmt = 'pdf'; if (st.fmt === 'png' && st.what === 'set') st.fmt = 'pdf';
     const seg = (key, list) => `<div class="segm" data-g="${key}">${list.map(([v, l, dis]) => `<button type="button" data-v="${v}" aria-pressed="${String(st[key]) === String(v)}"${dis ? ' disabled' : ''}>${l}</button>`).join('')}</div>`;
     const realSec = sec && !sec.room ? sec : model.sections[0], nPlans = stories().filter(s => hasContent(s.id)).length;
@@ -2805,12 +3008,13 @@ function openExport(preset) {
       schedule: 'Doors, windows (with their tags) and rooms with finishes. CSV opens in Excel or Numbers.',
       qto: 'Walls by type and layer, slabs, roofs, finishes, openings, millwork and fixtures, with the rates you set under Quantities and cost.',
       dxf: `${esc(storyLabel(storyOf(curStory)))} as a DXF (R12) for AutoCAD, ArchiCAD or Revit: walls, openings with door swings, zones, dimensions, grids and text on separate layers, in metres.`,
+      ifc: 'The whole model as an IFC 4 file for Revit, ArchiCAD, Solibri or BIMcollab: stories, walls with U-values, doors and windows cutting their walls, slabs, roofs, rooms, stairs, columns, beams, railings and objects, in metres. Hip roofs export as a flat slab.',
       set: `${nPlans + model.sections.length + 1} sheets in one PDF: ${nPlans} plan${nPlans === 1 ? '' : 's'}, ${model.sections.length} section${model.sections.length === 1 ? '' : 's'} and the schedule.`
     }[st.what];
-    openDialog('Export drawings', 'export', `<h5>Drawing</h5>${seg('what', [['plan', 'This plan'], ['section', 'Section', !hasSec], ['elevs', 'Room elevations', !z], ['schedule', 'Schedule'], ['qto', 'Quantities'], ['dxf', 'DXF (CAD)'], ['set', 'Full set']])}
-      <h5>Format</h5>${st.what === 'dxf' ? seg('fmt', [['dxf', 'DXF']]) : seg('fmt', [['pdf', 'PDF'], ['png', 'PNG', st.what === 'set'], ['csv', 'CSV', !tabular]])}
-      ${tabular || st.what === 'dxf' ? '' : `<h5>Scale</h5>${seg('scale', [[50, '1:50'], [100, '1:100'], [200, '1:200']])}`}
-      <p class="intro">${info}${tabular || st.what === 'dxf' ? '' : ' The sheet size (A4 to A1) is picked to fit; if the drawing is too big for A1, the scale steps down.'}</p>`,
+    openDialog('Export drawings', 'export', `<h5>Drawing</h5>${seg('what', [['plan', 'This plan'], ['section', 'Section', !hasSec], ['elevs', 'Room elevations', !z], ['schedule', 'Schedule'], ['qto', 'Quantities'], ['dxf', 'DXF (CAD)'], ['ifc', 'IFC (BIM)'], ['set', 'Full set']])}
+      <h5>Format</h5>${st.what === 'dxf' ? seg('fmt', [['dxf', 'DXF']]) : st.what === 'ifc' ? seg('fmt', [['ifc', 'IFC 4']]) : seg('fmt', [['pdf', 'PDF'], ['png', 'PNG', st.what === 'set'], ['csv', 'CSV', !tabular]])}
+      ${tabular || st.what === 'dxf' || st.what === 'ifc' ? '' : `<h5>Scale</h5>${seg('scale', [[50, '1:50'], [100, '1:100'], [200, '1:200']])}`}
+      <p class="intro">${info}${tabular || st.what === 'dxf' || st.what === 'ifc' ? '' : ' The sheet size (A4 to A1) is picked to fit; if the drawing is too big for A1, the scale steps down.'}</p>`,
       [['Export', true, async () => { closeDialog(); toast('Preparing…'); try { if (st.what === 'section' && sec && sec.room) curSec = realSec.id; await exportDrawings(st); } catch (e) { toast(e && e.message === 'load' ? 'Could not load the PDF tool. Try PNG, or check your connection' : 'Export failed. Try again'); } }]]);
     $('#dlg').querySelectorAll('[data-g]').forEach(gr => gr.onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; st[gr.dataset.g] = gr.dataset.g === 'scale' ? Number(b.dataset.v) : b.dataset.v; render(); });
   };
@@ -2850,7 +3054,7 @@ function planDXF(st) {
     }
   }
   for (const c of on('column')) c.round ? circ('A-COLS', [c.x, c.y], c.w / 2) : pl('A-COLS', [[c.x - c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y + c.d / 2], [c.x - c.w / 2, c.y + c.d / 2]]);
-  for (const s of on('stair')) { pl('A-STRS', rectCorners(s)); const n = Math.max(2, Math.round(Math.max(s.w, s.h) / .26)), alongY = s.dir === 'n' || s.dir === 's'; for (let i = 1; i < n; i++) alongY ? line('A-STRS', [s.x, s.y + s.h * i / n], [s.x + s.w, s.y + s.h * i / n]) : line('A-STRS', [s.x + s.w * i / n, s.y], [s.x + s.w * i / n, s.y + s.h]); }
+  for (const s of on('stair')) for (const t of stairSteps(s).steps) pl('A-STRS', [[t.x0, t.y0], [t.x1, t.y0], [t.x1, t.y1], [t.x0, t.y1]]);
   for (const r of on('roof')) pl('A-ROOF', rectCorners(r));
   for (const sk of on('sky')) pl('A-SKYL', rectCorners(sk));
   for (const si of on('site')) { pl('A-SITE', rectCorners(si)); if (si.setback > 0) pl('A-SITE', offsetPoly(rectCorners(si), si.setback)); }
@@ -3010,9 +3214,11 @@ function runChecks() {
     else if (o.w < .8) out.push({ kind: 'opening', id: o.id, st: w.st, msg: `${tag}: door ${fmt(o.w)} m wide, under 0.80 m` });
   }
   for (const s of model.stairs) {
-    const st = storyOf(s.st); if (!st) continue; const n = risers(s), rh = st.h / n, go = stairGeo(s).run / n;
+    const st = storyOf(s.st); if (!st) continue; const G = stairSteps(s), n = G.n, rh = st.h / n, go = Math.min(...G.steps.filter(q => !q.land).map(q => q.d)), fl = G.shape === 'straight' ? null : Math.min(Math.max(s.fw || 1, .6), s.dir === 'n' || s.dir === 's' ? s.w : s.h);
     if (rh > .19) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: risers ${Math.round(rh * 1000)} mm, over 190 mm` });
     if (go < .25) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: goings ${Math.round(go * 1000)} mm, under 250 mm. Make the run longer` });
+    if (2 * rh + go < .57 || 2 * rh + go > .65) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: 2R+G = ${Math.round((2 * rh + go) * 1000)} mm, outside 570 to 650 mm` });
+    if (stairW.get(s) < .8 || fl != null && fl < .8) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: width ${fmt(fl != null ? fl : stairW.get(s))} m, under 0.80 m` });
   }
   chkCache = { v: ver, list: out }; return out;
 }
@@ -3154,7 +3360,7 @@ Units are metres. Plan coordinates: x grows to the right (east), y grows downwar
 - columns: centre x,y, size w x d, height h, round true/false.
 - slabs: rectangle x,y (top-left), w,h, thickness t; the top of a slab is at its story's elevation. Every story above ground needs floor slabs, leaving a hole over stairs.
 - roofs: rectangle x,y,w,h (outer size including about 0.5 m overhang), shape gable or flat, pitch in degrees, base = height above its story where the roof starts (usually the wall height), ridge "x" or "y".
-- stairs: rectangle x,y,w,h, dir = n/e/s/w is the direction you walk up. A stair rises to the next story; about 0.28 m of run per riser, so a 3.0 m story needs about 4.2 m of run (allow 3.5 m minimum), width 0.9-1.2.
+- stairs: rectangle x,y,w,h, dir = n/e/s/w is the direction you walk up. Optional shape "L" (quarter landing) or "U" (half landing) with turn "l"/"r" and flight width fw (default 1.0); an L or U stair needs a rectangle at least about 2.2 m on both sides. A stair rises to the next story; about 0.28 m of run per riser, so a 3.0 m story needs about 4.2 m of run (allow 3.5 m minimum), width 0.9-1.2.
 - zones (rooms): rectangle x,y,w,h on the inside faces of walls, name, area = w*h. Rooms should have sensible sizes (bedroom 10-16 m2, bath 4-7, living 18-35) and each needs a door.
 - dims: dimension line from (x1,y1) to (x2,y2) with offset off.
 - rails (guard railings, height h) and beams (width w, depth h, top = height of the beam's top above its story) are lines from (x1,y1) to (x2,y2). Put a 1.0 m rail along every open edge of a stair void or balcony.
@@ -3222,14 +3428,14 @@ function modelForAI() {
     current_story: curStory,
     stories: stories().map((s, i) => ({ index: i, id: s.id, name: s.name, elev: r(s.elev), h: r(s.h) })),
     wall_types: (model.wallTypes || []).map(t => ({ id: t.id, name: t.name, thickness: r(wtThick(t)), U: r(uValue(t)) })),
-    walls: model.walls.map(w => ({ ...pick(w, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 't', 'h', 'mat', 'wt', 'reno']), length: r(wlen(w)) })),
+    walls: model.walls.map(w => ({ ...pick(w, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 't', 'h', 'mat', 'wt', 'reno', 'cw', 'cwx', 'cwz']), length: r(wlen(w)) })),
     openings: model.openings.map(o => pick(o, ['id', 'wid', 'type', 'pos', 'w', 'h', 'sill', 'flip', 'style', 'reno'])),
     columns: model.columns.map(c => pick(c, ['id', 'st', 'x', 'y', 'w', 'd', 'h', 'round'])),
     slabs: model.slabs.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 't', 'pts', 'reno'])),
     roofs: model.roofs.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 'shape', 'pitch', 'base', 'ridge', 'up', 'pts', 'reno'])),
     grids: model.grids.map(g => pick(g, ['id', 'name', 'x1', 'y1', 'x2', 'y2'])), sites: model.sites.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 'pts', 'setback', 'north'])),
     fixtures: model.fixtures.map(f => pick(f, ['id', 'st', 'type', 'x', 'y', 'rot', 'z'])), skylights: model.skylights.map(k => pick(k, ['id', 'st', 'x', 'y', 'w', 'h'])),
-    stairs: model.stairs.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 'dir'])),
+    stairs: model.stairs.map(s => pick(s, ['id', 'st', 'x', 'y', 'w', 'h', 'dir', 'shape', 'turn', 'fw'])),
     zones: model.zones.map(z => ({ ...pick(z, ['id', 'st', 'name', 'num', 'x', 'y', 'w', 'h', 'pts', 'ceil', 'ceilT']), area: r(areaOf(z)) })),
     dims: model.dims.map(d => pick(d, ['id', 'st', 'x1', 'y1', 'x2', 'y2', 'off'])),
     furniture: model.furniture.map(f => pick(f, ['id', 'st', 'type', 'x', 'y', 'w', 'd', 'h', 'rot', 'elev', 'doors'])),

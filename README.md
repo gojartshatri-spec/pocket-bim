@@ -24,6 +24,9 @@ A lite ArchiCAD for phones: floor plans with walls, doors, windows, columns, bea
 - **Openings:** single, double, sliding, pocket and cased doors; casement, tilt & turn, sliding and fixed windows; skylights that follow the roof slope.
 - **Quantities and cost:** net wall areas by type, layer volumes, bricks and blocks, slabs, roof slope areas, finishes, openings, millwork and fixtures, with your rates; on screen, as a sheet or CSV.
 - **Underlay:** trace a survey or scan; calibrate its scale by a known distance (kept on the device).
+- **Stairs:** straight, L (quarter landing) and U (half landing) stairs by rise and run, left or right turn, flight width; plan, 3D, section and DXF, with checks for riser, going, 2R+G and width.
+- **Curtain walls:** any wall can be a curtain wall with mullion and transom spacing; glazed grid in plan, 3D and IFC.
+- **IFC:** export the whole model as IFC 4 (stories, walls with U-values, openings that cut their walls, slabs, gable and shed roofs, rooms, stairs, columns, beams, railings, objects) and import walls, slabs, roofs, rooms, columns, doors and windows from IFC.
 - **Hand-off:** DXF (R12) plan export with CAD layers, saved 3D views, 3D image (PNG), GLB model, and AR on ARCore phones.
 
 Projects are saved on the device itself; *Copy project as JSON* and *Import* move them between devices. The AI assistant and cloud projects with shared comments work when the app is opened inside Claude.
