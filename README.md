@@ -43,6 +43,11 @@ A lite ArchiCAD for phones: floor plans with walls, doors, windows, columns, bea
 - **Site:** contour lines build a 3D terrain, with cut and fill under the ground floor.
 - **Documents:** keynotes with a sheet legend, room data sheets (also CSV), check results exported as BCF issues.
 - **Import and set-up:** DXF to walls (paired face lines become one wall), free-form morph blocks, a toolbar you can trim, fine / standard / bold pens.
+- **Design from a brief:** three floor-plan options from bedrooms, bathrooms and area, built as walls, doors, windows and rooms; the assistant can also generate layouts, curve walls and add every element type.
+- **Sheets:** sheet set manager (choose, order, number, one PDF), detail callouts exported at 1:5–1:50, door and window type elevations.
+- **Codes:** check profiles for general use, UK, New York City and Germany (typical values; confirm locally).
+- **3D:** high-resolution render with a prompt for AI image tools, first-person walkthrough recorded to video, imported GLB/OBJ objects, AR room survey into walls.
+- **Context and hand-off:** OpenStreetMap neighbouring buildings (where the network allows), presentation mode, finishes library with prices, live presence cursors, Send to ArchiCAD (IFC or a ready prompt for the Tapir connector, in a new file).
 - **IFC:** export the whole model as IFC 4 (stories, walls with U-values, openings that cut their walls, slabs, gable and shed roofs, rooms, stairs, columns, beams, railings, objects) and import walls, slabs, roofs, rooms, columns, doors and windows from IFC.
 - **Hand-off:** DXF (R12) plan export with CAD layers, saved 3D views, 3D image (PNG), GLB model, and AR on ARCore phones.
 
