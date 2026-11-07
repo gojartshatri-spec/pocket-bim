@@ -260,7 +260,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
           <div class="chainbar" id="chainbar" hidden></div>
         </div>
         <div class="pane" id="threePane" hidden>
-          <div class="chip3d"><select id="view3" aria-label="3D view"></select><button id="fit3">Fit</button><button id="sunBtn" aria-pressed="false">Sun study</button><button id="png3">Image</button><button id="glb3">GLB</button><button id="ar3" hidden>AR</button></div>
+          <div class="chip3d"><select id="view3" aria-label="3D view"></select><button id="fit3">Fit</button><button id="sunBtn" aria-pressed="false">Sun study</button><button id="png3">Image</button><button id="glb3">GLB</button><button id="rnd3">Render</button><button id="walk3" aria-pressed="false">Walk</button><button id="ar3" hidden>AR</button><button id="arS3" hidden>Survey</button></div>
           <div class="arov" id="arOv" hidden><div class="arbar"><span id="arMsg">Move the phone slowly to find a table or the floor, then tap to place.</span><button id="arScale">1:50</button><button id="arExit">Exit</button></div></div>
           <div class="sunp" id="sunp" hidden>
             <label class="fld"><span>Date</span><span class="fin"><select id="sunM"></select></span></label>
@@ -331,6 +331,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button id="mUnder">Underlay image…</button>
     <button id="mPhoto">Photo to plan…</button>
     <button id="mTools">Analysis and tools…</button>
+    <button id="mLayout">Plan options from a brief…</button>
+    <button id="mSheets">Sheet set…</button>
+    <button id="mPresent">Present</button>
+    <button id="mOSM">Context from OpenStreetMap…</button>
+    <button id="mObj">Import 3D object (GLB/OBJ)…</button>
+    <button id="mAC">Send to ArchiCAD…</button>
     <button id="mInfo">Project info and revisions…</button>
     <button id="mVers">Versions…</button>
     <button id="mExport">Export drawings (PDF, PNG, CSV)…</button>
@@ -349,7 +355,7 @@ const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 const r3 = v => Math.round(v * 1000) / 1000;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KEY = 'pocketbim.v2', OLDKEY = 'pocketbim.v1';
-const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', ramp: 'ramps', shaft: 'shafts', dormer: 'dormers', footing: 'footings', morph: 'morphs', pipe: 'pipes', contour: 'contours', zone: 'zones', dim: 'dims', furn: 'furniture', section: 'sections', rail: 'rails', beam: 'beams', label: 'labels', grid: 'grids', site: 'sites', underlay: 'underlays', fix: 'fixtures', sky: 'skylights' };
+const LISTS = { wall: 'walls', opening: 'openings', column: 'columns', slab: 'slabs', roof: 'roofs', stair: 'stairs', ramp: 'ramps', shaft: 'shafts', dormer: 'dormers', footing: 'footings', morph: 'morphs', pipe: 'pipes', contour: 'contours', callout: 'callouts', zone: 'zones', dim: 'dims', furn: 'furniture', section: 'sections', rail: 'rails', beam: 'beams', label: 'labels', grid: 'grids', site: 'sites', underlay: 'underlays', fix: 'fixtures', sky: 'skylights' };
 const DOOR_STYLES = { single: 'Single swing', double: 'Double swing', sliding: 'Sliding', pocket: 'Pocket', opening: 'Opening (no leaf)', arch: 'Arched opening' };
 const WIN_STYLES = { casement: 'Casement', tilt: 'Tilt & turn', sliding: 'Sliding', fixed: 'Fixed', niche: 'Niche (recess)' };
 const CEILT = { plaster: 'Plaster', gypsum: 'Gypsum board', acoustic: 'Acoustic tiles 600×600', timber: 'Timber slats', exposed: 'Exposed concrete' };
@@ -400,10 +406,10 @@ function wallBands(w) { // [{s0, s1, m}] offsets across the thickness, left (+t/
   const T = wtById(w.wt); if (!T) return null; const L = w.lflip ? T.layers.slice().reverse() : T.layers, tot = wtThick(T) || w.t, k = w.t / tot; let s = w.t / 2; const out = [];
   for (const l of L) { const s1 = s - l.t * k; out.push({ s0: s, s1, m: l.m }); s = s1; } return out;
 }
-const RECT = new Set(['slab', 'roof', 'stair', 'zone', 'site', 'ramp', 'shaft', 'dormer', 'morph']);
+const RECT = new Set(['slab', 'roof', 'stair', 'zone', 'site', 'ramp', 'shaft', 'dormer', 'morph', 'callout']);
 const ZONE_COLORS = ['#e3b04b', '#6fa9d6', '#8cbf88', '#d68aa5', '#a79be0', '#e08a5c', '#6cc1b6'];
 const MATS = { brick: 'Brick', block: 'Block', concrete: 'Concrete', gypsum: 'Gypsum board' };
-const NAMES_X = { morph: 'Morph (free form)', pipe: 'Pipe / duct', contour: 'Contour line', ramp: 'Ramp', shaft: 'Shaft / slab opening', dormer: 'Dormer', footing: 'Strip footing', curve: 'Curve', fillet: 'Fillet', fnd: 'Footings', fix: 'Fixture', sky: 'Skylight', grid: 'Grid line', site: 'Site', underlay: 'Underlay', calib: 'Calibrate underlay' };
+const NAMES_X = { callout: 'Detail callout', morph: 'Morph (free form)', pipe: 'Pipe / duct', contour: 'Contour line', ramp: 'Ramp', shaft: 'Shaft / slab opening', dormer: 'Dormer', footing: 'Strip footing', curve: 'Curve', fillet: 'Fillet', fnd: 'Footings', fix: 'Fixture', sky: 'Skylight', grid: 'Grid line', site: 'Site', underlay: 'Underlay', calib: 'Calibrate underlay' };
 const NAMES = { ...NAMES_X, select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dimension', furn: 'Object', section: 'Section', rail: 'Railing', beam: 'Beam', label: 'Text', mill: 'Millwork', measure: 'Measure', pin: 'Comment' };
 
 const I = {
@@ -437,6 +443,7 @@ const I = {
   section: '<path d="M3 12h18" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 2 1 2"/><path d="M2.5 12h4M17.5 12h4" stroke="currentColor" stroke-width="2.6"/><path d="M3 13.5h4l-2 4z" fill="currentColor"/><path d="M17 13.5h4l-2 4z" fill="currentColor"/><circle cx="5" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/><circle cx="19" cy="6.5" r="2.7" stroke="currentColor" stroke-width="1.3"/>',
   open: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>',
   export: '<path d="M12 3v12M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v4h16v-4" stroke="currentColor" stroke-width="1.8"/>',
+  callout: '<circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M10 10h10v10H10z" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>',
   morph: '<path d="M4 18 8 6l8 2 4 10z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 6l2 12" stroke="currentColor" stroke-width="1.1"/>',
   pipe: '<path d="M3 9h10a4 4 0 0 1 4 4v8" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>',
   contour: '<path d="M3 17c4-6 8 2 18-4M3 11c5-5 9 1 18-5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
@@ -566,7 +573,7 @@ const defaults = {
   wall: { t: .3, h: 2.8, mat: 'brick', method: 'single' }, door: { w: .9, h: 2.1, sill: 0, style: 'single' }, window: { w: 1.2, h: 1.4, sill: .9, style: 'casement' },
   column: { w: .3, d: .3, h: 2.8, round: false }, slab: { t: .25, method: 'rect' }, roof: { pitch: 30, base: 2.8, shape: 'gable', ridge: 'auto', method: 'rect' },
   stair: { w: 1.0 }, zone: { name: 'Room', method: 'rect' }, dim: { off: .6 }, furn: { type: 'sofa', w: 2.0, d: .9, h: .8, rot: 0 }, section: { depth: 20 },
-  rail: { h: 1.0 }, fix: { type: 'downlight', rot: 0 }, sky: { w: .78, h: 1.18 }, grid: {}, site: { setback: 3, north: 0, method: 'rect' }, calib: {}, beam: { w: .25, h: .4, top: 2.8 }, footing: { w: .6, d: .5, top: -.3 }, morph: { mh: 1, elev: 0, method: 'rect' }, pipe: { sys: 'drain', d: .11, z: -.3, fall: 2 }, contour: { z: 0 }, ramp: { w: 1.2, rise: .45 }, shaft: {}, dormer: { dh: 1.4, face: 's' }, label: { size: 10 }, mill: { type: 'base', w: .6, d: .6, h: .9, doors: 1, plinth: .1, elev: 0, rot: 0 }
+  rail: { h: 1.0 }, fix: { type: 'downlight', rot: 0 }, sky: { w: .78, h: 1.18 }, grid: {}, site: { setback: 3, north: 0, method: 'rect' }, calib: {}, beam: { w: .25, h: .4, top: 2.8 }, footing: { w: .6, d: .5, top: -.3 }, morph: { mh: 1, elev: 0, method: 'rect' }, callout: { scale: 20 }, pipe: { sys: 'drain', d: .11, z: -.3, fall: 2 }, contour: { z: 0 }, ramp: { w: 1.2, rise: .45 }, shaft: {}, dormer: { dh: 1.4, face: 's' }, label: { size: 10 }, mill: { type: 'base', w: .6, d: .6, h: .9, doors: 1, plinth: .1, elev: 0, rot: 0 }
 };
 let curSec = null, ver = 0;
 let undoStack = [], redoStack = [];
@@ -836,6 +843,7 @@ const mk = {
     if (kind === 'slab') o = { ...base, t: num(p.t, d.t) };
     if (kind === 'roof') { const rg = p.ridge === 'x' || p.ridge === 'y' ? p.ridge : (d.ridge === 'x' || d.ridge === 'y' ? d.ridge : (base.w >= base.h ? 'x' : 'y')); o = { ...base, pitch: num(p.pitch, d.pitch), base: num(p.base, d.base), shape: ROOF_SHAPES[p.shape] ? p.shape : d.shape, ridge: rg }; if (o.shape === 'shed') o.up = ['n', 'e', 's', 'w'].includes(p.up) ? p.up : 'n'; if (pts) o.shape = 'flat'; }
     if (kind === 'stair') { o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e') }; if (p.shape === 'L' || p.shape === 'U') { o.shape = p.shape; o.turn = p.turn === 'l' ? 'l' : 'r'; if (num(p.fw, 0) > 0) o.fw = num(p.fw, 1); } }
+    if (kind === 'callout') o = { ...base, name: String(p.name || 'D' + ((model.callouts || []).length + 1)).slice(0, 6), scale: [5, 10, 20, 50].includes(num(p.scale, 0)) ? num(p.scale, 20) : d.scale };
     if (kind === 'morph') o = { ...base, mh: Math.max(.05, num(p.mh, d.mh)), elev: num(p.elev, d.elev) };
     if (kind === 'ramp') o = { ...base, dir: ['n', 'e', 's', 'w'].includes(p.dir) ? p.dir : (base.h >= base.w ? 'n' : 'e'), rise: Math.max(.02, num(p.rise, d.rise)) };
     if (kind === 'shaft') { o = { ...base }; if (p.thru === true || p.thru === 'true') o.thru = true; }
@@ -887,6 +895,8 @@ const FS = (key, label, choices, o = {}) => ({ key, label, type: 'select', choic
 const FT = (key, label, o = {}) => ({ key, label, type: 'text', info: true, tmpl: true, ...o });
 const XY = (k, l) => F(k, l, { tmpl: false, info: false, min: -1e4, max: 1e4 });
 const stairW = { get: o => o.dir ? (o.dir === 'n' || o.dir === 's' ? o.w : o.h) : o.w, set: (o, v) => { if (!o.dir) { o.w = v; return; } if (o.dir === 'n' || o.dir === 's') { const c = o.x + o.w / 2; o.w = v; o.x = r3(c - v / 2); } else { const c = o.y + o.h / 2; o.h = v; o.y = r3(c - v / 2); } } };
+const PRODUCTS = { 'oak-eng': ['Engineered oak 14 mm', 'floor', '#b98a57', 45], 'porc-60': ['Porcelain tile 60×60', 'floor', '#d8d4cc', 30], 'terrazzo': ['Terrazzo, cast in place', 'floor', '#c9c2b5', 85], 'micro': ['Microcement', 'floor', '#a9a49b', 60], 'carpet-w': ['Wool carpet', 'floor', '#8d8478', 40], 'stone-lime': ['Limestone 2 cm', 'floor', '#d9cdb2', 95], 'paint-w': ['Matt emulsion, white', 'wall', '#f2f0ea', 6], 'paint-g': ['Mineral paint, warm grey', 'wall', '#bdb6aa', 9], 'lime-pl': ['Lime plaster', 'wall', '#e6ddcc', 28], 'tile-w': ['Glazed wall tile 10×30', 'wall', '#e9eef0', 38], 'oak-pan': ['Oak veneer panelling', 'wall', '#b48958', 120], 'clay-pl': ['Clay plaster', 'wall', '#c7a07a', 32] };
+const prodChoices = cat => ({ '': '—', ...Object.fromEntries(Object.entries(PRODUCTS).filter(([, p]) => p[1] === cat).map(([k, p]) => [k, `${p[0]} · ${p[3]}/m²`])) });
 const PIPE_SYS = { drain: ['Drainage', '#8a5a2b'], water: ['Cold water', '#2f7fd1'], hot: ['Hot water', '#d1452f'], heat: ['Heating', '#c2410c'], duct: ['Supply air duct', '#5b8c3a'], vent: ['Extract air duct', '#7c5cbf'], gas: ['Gas', '#d4a017'] };
 const FIELDS = {
   wall: [FS('wt', 'Wall type', null, { choicesFn: () => ({ '': 'Basic (one material)', ...Object.fromEntries((model.wallTypes || []).map(t => [t.id, t.name])) }), get: o => o.wt || '', set: (o, v) => { if (!v) { delete o.wt; return; } const T = wtById(v); if (!T) return; o.wt = v; delete o.cw; o.t = wtThick(T); const core = T.layers.filter(l => MATS[l.m]).sort((a, b) => b.t - a.t)[0]; if (core) o.mat = core.m; } }),
@@ -947,8 +957,11 @@ Object.assign(FIELDS, {
 Object.assign(FIELDS, {
   morph: [F('mh', 'Height', { min: .02, max: 100 }), F('elev', 'Base above floor', { min: -20, max: 100 }), F('area', 'Area', { tmpl: false, ro: true, unit: 'm²', get: areaOf }), F('w', 'Width', { tmpl: false, when: o => !o.pts }), F('h', 'Depth', { tmpl: false, when: o => !o.pts }), XY('x', 'Left x'), XY('y', 'Top y')],
   pipe: [FS('sys', 'System', Object.fromEntries(Object.entries(PIPE_SYS).map(([k, v]) => [k, v[0]]))), F('d', 'Size (Ø or width)', { min: .01, max: 2 }), F('z', 'Height at start', { min: -6, max: 30 }), F('fall', 'Fall', { unit: '%', dec: 1, step: .5, min: 0, max: 20, when: o => o.sys === 'drain', get: o => o.fall || 0 }), F('len', 'Length', { tmpl: false, ro: true, get: o => Math.hypot(o.x2 - o.x1, o.y2 - o.y1) })],
-  contour: [F('z', 'Elevation', { min: -1000, max: 9000 })]
+  contour: [F('z', 'Elevation', { min: -1000, max: 9000 })],
+  callout: [FS('scale', 'Detail scale', { 5: '1:5', 10: '1:10', 20: '1:20', 50: '1:50' }, { get: o => String(o.scale || 20), set: (o, v) => { o.scale = Number(v); } }), FS('name', 'Mark', Object.fromEntries(Array.from({ length: 12 }, (_, i) => ['D' + (i + 1), 'D' + (i + 1)])), { tmpl: false }), F('w', 'Width', { tmpl: false }), F('h', 'Depth', { tmpl: false }), XY('x', 'Left x'), XY('y', 'Top y')]
 });
+FIELDS.zone.push(FS('fprod', 'Floor product', prodChoices('floor'), { tmpl: false, get: o => o.fprod || '', set: (o, v) => { if (v) { o.fprod = v; model.prices = model.prices || {}; if (model.prices['prod:' + v] == null) model.prices['prod:' + v] = PRODUCTS[v][3]; } else delete o.fprod; } }), FS('wprod', 'Wall finish product', prodChoices('wall'), { tmpl: false, get: o => o.wprod || '', set: (o, v) => { if (v) { o.wprod = v; model.prices = model.prices || {}; if (model.prices['prod:' + v] == null) model.prices['prod:' + v] = PRODUCTS[v][3]; } else delete o.wprod; } }));
+FURN.custom = { label: 'Imported object', w: 1, d: 1, h: 1, wall: 0 };
 FIELDS.fix.push(FS('cir', 'Circuit', { '': '—', L1: 'L1 lighting', L2: 'L2 lighting', L3: 'L3 lighting', S1: 'S1 sockets', S2: 'S2 sockets', S3: 'S3 sockets', K1: 'K1 kitchen', AC: 'AC', D1: 'D1 data' }, { tmpl: false, get: o => o.cir || '', set: (o, v) => { if (v) o.cir = v; else delete o.cir; } }));
 FIELDS.window.push(F('nd', 'Niche depth', { tmpl: false, min: .03, max: 1, when: o => o.style === 'niche', get: o => o.nd ?? .15 }));
 FIELDS.roof.push(F('pitch2', 'Upper pitch', { unit: '°', dec: 0, step: 1, min: 0, max: 60, tmpl: false, when: o => o.shape === 'mansard', get: o => o.pitch2 ?? 15 }), F('mb', 'Break inset', { tmpl: false, min: .2, max: 5, when: o => o.shape === 'mansard', get: o => o.mb ?? .9 }),
@@ -984,8 +997,8 @@ function bindFields(root, ctxInfo) {
 }
 
 /* ================= chrome: toolbox, info box, quick options, tabs ================= */
-const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'ramp', 'rail', 'door', 'window', 'sky', 'dormer', 'shaft', 'footing', 'morph', 'pipe', 'furn', 'mill', 'fix']], ['Document', ['zone', 'dim', 'label', 'section', 'grid', 'site', 'contour', 'measure', 'pin']]];
-const SHORT = { morph: 'Morph', pipe: 'Pipe', contour: 'Contour', ramp: 'Ramp', shaft: 'Shaft', dormer: 'Dormer', footing: 'Footing', sky: 'Skylight', fix: 'Fixture', grid: 'Grid', site: 'Site', select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object', section: 'Section', beam: 'Beam', rail: 'Railing', mill: 'Millwork', label: 'Text', measure: 'Measure', pin: 'Comment' };
+const TOOLGROUPS = [['Select', ['select']], ['Design', ['wall', 'column', 'beam', 'slab', 'roof', 'stair', 'ramp', 'rail', 'door', 'window', 'sky', 'dormer', 'shaft', 'footing', 'morph', 'pipe', 'furn', 'mill', 'fix']], ['Document', ['zone', 'dim', 'label', 'section', 'grid', 'site', 'contour', 'callout', 'measure', 'pin']]];
+const SHORT = { callout: 'Callout', morph: 'Morph', pipe: 'Pipe', contour: 'Contour', ramp: 'Ramp', shaft: 'Shaft', dormer: 'Dormer', footing: 'Footing', sky: 'Skylight', fix: 'Fixture', grid: 'Grid', site: 'Site', select: 'Arrow', wall: 'Wall', column: 'Column', slab: 'Slab', roof: 'Roof', stair: 'Stair', door: 'Door', window: 'Window', zone: 'Zone', dim: 'Dim', furn: 'Object', section: 'Section', beam: 'Beam', rail: 'Railing', mill: 'Millwork', label: 'Text', measure: 'Measure', pin: 'Comment' };
 // toolbar: hide tools you do not use (kept on this device)
 const TBKEY = 'pocketbim.hiddenTools'; let hiddenTools = new Set(); try { hiddenTools = new Set(JSON.parse(localStorage.getItem(TBKEY) || '[]')); } catch (e) { }
 function renderToolbox() { $('#toolbox').innerHTML = TOOLGROUPS.map(([g, ts]) => `<h6>${g}</h6>` + ts.filter(t => t === 'select' || !hiddenTools.has(t)).map(t => `<button class="tool" data-tool="${t}" aria-pressed="${(() => { try { return tool === t; } catch (e) { return false; } })()}" aria-label="${NAMES[t]} tool">${icon(t)}${SHORT[t]}</button>`).join('')).join(''); }
@@ -999,6 +1012,7 @@ const HINTS = {
   wall: '', column: 'Tap to place a column.', slab: 'Drag a rectangle, or tap to cover the whole story.',
   roof: 'Drag a rectangle, or tap to roof the whole story.', stair: 'Drag in the walking direction, or tap to place.',
   door: 'Tap a wall to place a door.', window: 'Tap a wall to place a window.', furn: 'Tap to place. Near a wall it turns its back to the wall.', zone: 'Tap inside a room, or drag a rectangle.', dim: 'Tap a wall to dimension its whole run (it follows the wall), or drag between two points.',
+  callout: 'Drag a frame round the part to enlarge. It exports as its own detail sheet at 1:20 (or 1:5–1:50) with the full set or the sheet set.',
   morph: 'Drag a rectangle or draw a polygon: a free-form block. Set its height and how high it sits.', pipe: 'Drag along the run. Pick the system; drains get a fall that the checks test.', contour: 'Drag along a contour and set its level. The site terrain is built from them; Analysis gives cut and fill.',
   ramp: 'Drag in the walking direction (uphill). Set the rise here; the slope is checked against 1:12.', shaft: 'Drag a rectangle: it cuts the slab on this story, or on all stories above too.', dormer: 'Drag a rectangle on a pitched roof. Set which side the window faces.', footing: 'Drag along a wall line. Or select a wall and tap Footings to put one under every wall on the story.',
   beam: 'Drag along the beam. Plans show it dashed, as overhead.', rail: 'Drag along the edge you want to guard.',
@@ -1141,6 +1155,7 @@ $('#mQto').onclick = () => openQto();
 $('#mUnder').onclick = () => openUnderlay();
 $('#mPhoto').onclick = () => openPhotoPlan();
 $('#mTools').onclick = () => openToolsHub();
+$('#mLayout').onclick = () => openLayoutGen(); $('#mSheets').onclick = () => openSheetSet(); $('#mPresent').onclick = () => openPresent(); $('#mOSM').onclick = () => openOSM(); $('#mObj').onclick = () => openObjImport(); $('#mAC').onclick = () => openArchicad();
 $('#mInfo').onclick = () => openProjectInfo();
 $('#mVers').onclick = () => openVersions();
 $('#qPhase').onclick = () => openPhase();
@@ -1495,6 +1510,8 @@ function draw() {
   for (const m of E('morph')) styled(m, () => drawMorph(m));
   for (const c of model.contours.filter(c => c.st === curStory)) drawContour(c);
   for (const p of E('pipe')) styled(p, () => drawPipe(p));
+  for (const c of (model.callouts || []).filter(c => c.st === curStory)) drawCallout(c);
+  drawPeers();
   // walls: outline pass, then fills hide inner outlines at junctions; weaker walls fill first so the stronger wall's fill wins where they overlap
   const wall0 = E('wall').sort((a, b) => wallPriority(a) - wallPriority(b)), wdemo = wall0.filter(w => renoStyle(w) === 'demo'), ws = wall0.filter(w => renoStyle(w) !== 'demo'), quads = new Map(wall0.map(w => [w, wallQuad(w)]));
   ctx.lineJoin = 'miter'; ctx.strokeStyle = colors.ink; ctx.lineWidth = lw * 2;
@@ -1891,7 +1908,7 @@ function drawSelOne(lw, k, noH) {
   else if (kind === 'dim') drawDim(o, colors.accent, k);
   else if (kind === 'section') drawSecMark(o, colors.accent, k);
   else if (kind === 'rail' || kind === 'beam' || kind === 'footing') { poly(lineQuad(o, kind === 'rail' ? .08 : o.w)); ctx.fill(); ctx.stroke(); }
-  else if (kind === 'ramp' || kind === 'shaft' || kind === 'dormer' || kind === 'morph') { poly(rectCorners(o)); ctx.fill(); ctx.stroke(); }
+  else if (kind === 'ramp' || kind === 'shaft' || kind === 'dormer' || kind === 'morph' || kind === 'callout') { poly(rectCorners(o)); ctx.fill(); ctx.stroke(); }
   else if (kind === 'pipe' || kind === 'contour') { poly(lineQuad(o, kind === 'pipe' ? Math.max(o.d, .1) : .1)); ctx.fill(); ctx.stroke(); }
   else if (kind === 'label') drawLabel(o, colors.accent);
   else if (kind === 'grid') drawGrid(o, k, colors.accent);
@@ -1959,7 +1976,7 @@ function hit(p) {
   if (Ly.dims) for (const d of model.dims) if (d.st === st) { const q = dimLine(d); if (q && segDistPts(p, q[0], q[1]).d < tol) return { kind: 'dim', id: d.id }; }
   if (Ly.struct) for (const b of model.beams) if (b.st === st && segDistPts(p, [b.x1, b.y1], [b.x2, b.y2]).d < b.w / 2 + tol * .5) return { kind: 'beam', id: b.id };
   for (const s of model.stairs) if (s.st === st && inRect(p, s)) return { kind: 'stair', id: s.id };
-  for (const k of ['dormer', 'shaft', 'ramp']) for (const o of model[LISTS[k]]) if (o.st === st && inRect(p, o)) return { kind: k, id: o.id };
+  for (const k of ['callout', 'dormer', 'shaft', 'ramp']) for (const o of model[LISTS[k]]) if (o.st === st && inRect(p, o)) return { kind: k, id: o.id };
   for (const q of model.pipes) if (q.st === st && segDistPts(p, [q.x1, q.y1], [q.x2, q.y2]).d < Math.max(q.d / 2, tol * .5)) return { kind: 'pipe', id: q.id };
   for (const m of model.morphs) if (m.st === st && inShape(p, m)) return { kind: 'morph', id: m.id };
   for (const c of model.contours) if (c.st === st && segDistPts(p, [c.x1, c.y1], [c.x2, c.y2]).d < tol * .5) return { kind: 'contour', id: c.id };
@@ -2062,7 +2079,7 @@ function startOp(l) {
     }
     case 'wall': op.type = defaults.wall.method === 'rect' ? 'rect' : 'line'; op.target = 'wall'; break;
     case 'dim': case 'section': case 'rail': case 'beam': case 'footing': case 'pipe': case 'contour': case 'label': case 'measure': case 'grid': case 'calib': op.type = 'line'; op.target = tool; break;
-    case 'slab': case 'roof': case 'zone': case 'stair': case 'site': case 'ramp': case 'shaft': case 'dormer': case 'morph': op.type = 'rect'; op.target = tool; break;
+    case 'slab': case 'roof': case 'zone': case 'stair': case 'site': case 'ramp': case 'shaft': case 'dormer': case 'morph': case 'callout': op.type = 'rect'; op.target = tool; break;
     default: op.type = 'place';
   }
   if (op.type === 'line' || op.type === 'rect') { const s = snap(p); op.a = s; op.b = s; op.snapPt = s; }
@@ -2148,7 +2165,7 @@ function rectDone(o, p) {
     if (t === 'zone') { const r = magicRect(p); if (!r || r.w * r.h > 400) { toast('No closed room here. Drag a rectangle instead'); return; } pushUndo(); const z = mk.rect('zone', curStory, r); changed(); toast(`${z.name} ${z.num}: ${fmt(r.w * r.h)} m²`); return; }
     if (t === 'slab' || t === 'roof') { const b = storyBounds(curStory, t === 'roof' ? .5 : 0); if (!b) { toast('Draw some walls first, or drag a rectangle'); return; } pushUndo(); mk.rect(t, curStory, b); changed(); toast(t === 'roof' ? 'Roof placed over the whole story' : 'Slab placed under the whole story'); return; }
     if (t === 'stair') { const s = snap(p), W = defaults.stair.w; pushUndo(); mk.rect('stair', curStory, { x: s.x - W / 2, y: s.y - 1.75, w: W, h: 3.5 }, { dir: 'n' }); changed(); return; }
-    if (['wall', 'site', 'ramp', 'shaft', 'dormer'].includes(t)) { toast('Drag to draw the rectangle'); return; }
+    if (['wall', 'site', 'ramp', 'shaft', 'dormer', 'callout'].includes(t)) { toast('Drag to draw the rectangle'); return; }
   }
   const r = previewRect(t, o.a, o.b);
   if (r.w < .2 || r.h < .2) return;
@@ -2474,7 +2491,8 @@ $('#glb3').onclick = async () => {
 };
 // AR: WebXR immersive-ar with hit-test (Chrome on Android with ARCore). The model sits at 1:50 on a table, or 1:1 on the floor
 const xr = { session: null, scale: 1 / 50, hitSrc: null, reticle: null, placed: false, holder: null };
-async function arCheck() { try { if (navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')) $('#ar3').hidden = false; } catch (e) { } }
+async function arCheck() { try { if (navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')) { $('#ar3').hidden = false; $('#arS3').hidden = false; } } catch (e) { } }
+$('#rnd3').onclick = () => render3HQ(); $('#walk3').onclick = () => walkToggle(); $('#arS3').onclick = () => arSurvey();
 $('#ar3').onclick = async () => {
   if (xr.session) return;
   try {
@@ -2686,6 +2704,7 @@ function buildFurn3(f, e, FM) {
       if (top) P(0, .01, W, D + .02, H - top, top, FM.dark);
       break;
     }
+    case 'custom': if (f.ref) { custMesh(f, e, o => group.add(o)); break; } P(0, 0, W, D, 0, H, FM.light); break;
     default: P(0, 0, W, D, 0, H, FM.light);
   }
 }
@@ -2747,14 +2766,15 @@ function render3() {
   req3 = false; if (!renderer) return; if (dirty3) build3();
   const { theta, phi, r, tx, ty, tz } = orbit;
   camera.position.set(tx + r * Math.sin(phi) * Math.cos(theta), ty + r * Math.cos(phi), tz + r * Math.sin(phi) * Math.sin(theta));
-  camera.lookAt(tx, ty, tz); renderer.render(scene, camera);
+  if (walk.on) walkCam(); else camera.lookAt(tx, ty, tz); renderer.render(scene, camera);
 }
 function orbitControls(el) {
   const P = new Map(); let g = null;
   el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY }); g = null; });
   el.addEventListener('pointermove', e => {
     if (!P.has(e.pointerId)) return; const prev = P.get(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (P.size === 1) { orbit.theta += (e.clientX - prev.x) * .008; orbit.phi = Math.min(1.55, Math.max(.06, orbit.phi - (e.clientY - prev.y) * .008)); }
+    if (P.size === 1 && walk.on) { walk.yaw += (e.clientX - prev.x) * .005; walk.pitch = Math.max(-1.2, Math.min(1.2, walk.pitch - (e.clientY - prev.y) * .005)); }
+    else if (P.size === 1) { orbit.theta += (e.clientX - prev.x) * .008; orbit.phi = Math.min(1.55, Math.max(.06, orbit.phi - (e.clientY - prev.y) * .008)); }
     else if (P.size === 2) {
       const [a, b] = [...P.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if (g) {
@@ -3064,9 +3084,10 @@ function composeSheet(item, scale, no, of) {
   const col = { ...LIGHT, mono: colors.mono, cond: colors.cond, sans: colors.sans };
   let title, ext = null, panels = null, sh, wM = 0, hM = 0;
   if (item.kind === 'plan') {
-    ext = planExtent(item.st) || { x0: -1, y0: -1, x1: 11, y1: 9 }; title = storyLabel(storyOf(item.st)) + (opts.rcp ? ' · Reflected ceiling plan' : '') + (opts.phase !== 'all' ? ` · ${PHASES[opts.phase]} plan` : ''); wM = ext.x1 - ext.x0; hM = ext.y1 - ext.y0;
-    sh = pickSheet(sc => [wM * 1000 / sc, hM * 1000 / sc + 16], scale);
-  } else if (item.kind === 'schedule') { title = 'Door, window & room schedule'; sh = { name: 'A3', W: 420, H: 297, scale: 0 }; }
+    ext = item.ext || planExtent(item.st) || { x0: -1, y0: -1, x1: 11, y1: 9 }; title = item.title || storyLabel(storyOf(item.st)) + (opts.rcp ? ' · Reflected ceiling plan' : '') + (opts.phase !== 'all' ? ` · ${PHASES[opts.phase]} plan` : ''); wM = ext.x1 - ext.x0; hM = ext.y1 - ext.y0;
+    sh = pickSheet(sc => [wM * 1000 / sc, hM * 1000 / sc + 16], item.scale || scale);
+  } else if (item.kind === 'types') { title = 'Door and window types'; sh = { name: 'A3', W: 420, H: 297, scale: 50 }; }
+  else if (item.kind === 'schedule') { title = 'Door, window & room schedule'; sh = { name: 'A3', W: 420, H: 297, scale: 0 }; }
   else if (item.kind === 'qto') { title = 'Quantities and cost'; sh = { name: 'A3', W: 420, H: 297, scale: 0 }; }
   else {
     const secs = item.kind === 'elevs' ? ['n', 'e', 's', 'w'].map(d => roomElev(item.zone, d)) : [item.sec];
@@ -3087,7 +3108,8 @@ function composeSheet(item, scale, no, of) {
     const save_ = { ctx, colors, pats, v: { ...view }, trace: opts.trace, sel, cur: curStory, chain, meas };
     ctx = g; colors = col; pats = makePats(g, col); view.s = s; view.x = ox - ext.x0 * s; view.y = oy - ext.y0 * s;
     opts.trace = false; sel = null; chain = null; meas = null; curStory = item.st; EXP.on = true; EXP.W = c.width; EXP.H = c.height;
-    try { draw(); } finally { ctx = save_.ctx; colors = save_.colors; pats = save_.pats; Object.assign(view, save_.v); opts.trace = save_.trace; sel = save_.sel; curStory = save_.cur; chain = save_.chain; meas = save_.meas; EXP.on = false; requestDraw(); }
+    if (item.ext) { g.save(); g.beginPath(); g.rect(ox, oy, dw, dh); g.clip(); }
+    try { draw(); } finally { if (item.ext) { g.restore(); g.strokeStyle = LIGHT.ink; g.lineWidth = .35 * k; g.strokeRect(ox, oy, dw, dh); } ctx = save_.ctx; colors = save_.colors; pats = save_.pats; Object.assign(view, save_.v); opts.trace = save_.trace; sel = save_.sel; curStory = save_.cur; chain = save_.chain; meas = save_.meas; EXP.on = false; requestDraw(); }
   } else if (panels) {
     const gx = 12 * k, gy = 10 * k, sub = panels.sub * k, cwp = panels.cw * s, chp = panels.ch * s, pp = makePats(g, col);
     dw = panels.cols * cwp + (panels.cols - 1) * gx; dh = panels.rows * (chp + sub) + (panels.rows - 1) * gy;
@@ -3097,7 +3119,8 @@ function composeSheet(item, scale, no, of) {
       drawSection(g, { x: px - f.h0 * s, y: py + f.z1 * s, s }, c.width, c.height, col, pp, p.D, { lw: Math.max(.8, Math.min(2.2, s / 35)), k: annK });
       if (sub) { g.fillStyle = LIGHT.ink; g.font = `600 ${Math.round(3.6 * k)}px ${col.sans}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(p.sec.dirName + ' wall', px + .6 * s, cy + chp + 6 * k); }
     });
-  } else drawScheduleTables(g, k, ox, oy, aw, ah + 10 * k, col, item.kind === 'qto' ? [qtoTable()] : null);
+  } else if (item.kind === 'types') drawTypes(g, k, ox, oy, aw, ah, col);
+  else drawScheduleTables(g, k, ox, oy, aw, ah + 10 * k, col, item.kind === 'qto' ? [qtoTable()] : null);
   // sheet border, drawing title, north arrow, scale bar, title block
   const W = c.width, H = c.height, M = 10 * k, ink = LIGHT.ink, mut = LIGHT.muted, F = (wt, mm, fam) => `${wt} ${Math.round(mm * k)}px ${fam || col.sans}`;
   g.fillStyle = '#fff'; g.fillRect(0, 0, W, M); g.fillRect(0, H - M, W, M); g.fillRect(0, 0, M, H); g.fillRect(W - M, 0, M, H);
@@ -3110,10 +3133,10 @@ function composeSheet(item, scale, no, of) {
     g.fillText(title, ox, tyD); const tw = g.measureText(title).width;
     g.font = F(400, 3.5, col.mono); g.fillStyle = mut; g.fillText('1:' + sh.scale, ox + tw + 4 * k, tyD);
     g.strokeStyle = ink; g.lineWidth = .35 * k; g.beginPath(); g.moveTo(ox, tyD + 2 * k); g.lineTo(ox + Math.max(tw + 22 * k, 70 * k), tyD + 2 * k); g.stroke();
-    const bx = Math.min(W - M - 7 * k - 5 * s, ox + Math.max(tw + 30 * k, 80 * k)), by = tyD - 2.4 * k;
-    for (let i = 0; i < 5; i++) { g.fillStyle = i % 2 ? '#fff' : ink; g.fillRect(bx + i * s, by, s, 1.6 * k); }
-    g.strokeStyle = ink; g.lineWidth = .25 * k; g.strokeRect(bx, by, 5 * s, 1.6 * k);
-    g.fillStyle = mut; g.font = F(400, 2.4, col.mono); g.textAlign = 'center'; g.fillText('0', bx, by - 1.2 * k); g.fillText('5 m', bx + 5 * s, by - 1.2 * k);
+    const bu = (sh.scale || 100) <= 10 ? .1 : (sh.scale || 100) <= 20 ? .2 : 1, sb = s * bu, bx = Math.min(W - M - 7 * k - 5 * sb, ox + Math.max(tw + 30 * k, 80 * k)), by = tyD - 2.4 * k;
+    for (let i = 0; i < 5; i++) { g.fillStyle = i % 2 ? '#fff' : ink; g.fillRect(bx + i * sb, by, sb, 1.6 * k); }
+    g.strokeStyle = ink; g.lineWidth = .25 * k; g.strokeRect(bx, by, 5 * sb, 1.6 * k);
+    g.fillStyle = mut; g.font = F(400, 2.4, col.mono); g.textAlign = 'center'; g.fillText('0', bx, by - 1.2 * k); g.fillText(`${+(5 * bu).toFixed(1)} m`, bx + 5 * sb, by - 1.2 * k);
   }
   if (item.kind === 'plan') {
     const nx = W - M - 16 * k, ny = M + 18 * k, r = 6 * k, keepC = colors; colors = col; drawNorth(nx, ny, r, siteNorth(), g, ink); colors = keepC;
@@ -3194,14 +3217,17 @@ async function exportDrawings(o) {
   if (o.what === 'qto' && o.fmt === 'csv') { await saveFile(`${base}-quantities.csv`, new Blob([qtoCSV()], { type: 'text/csv' })); return; }
   if (o.what === 'ifc') { await saveAny(`${base}.ifc`, new Blob([buildIFC()], { type: 'application/x-step' })); return; }
   if (o.what === 'dxf') { await saveAny(`${base}-${slug(storyLabel(storyOf(curStory)))}.dxf`, new Blob([planDXF(curStory)], { type: 'application/dxf' })); return; }
-  if (o.what === 'plan') items = [{ kind: 'plan', st: curStory }];
+  if (o.items) items = o.items;
+  else if (o.what === 'plan') items = [{ kind: 'plan', st: curStory }];
   else if (o.what === 'section') { const s = curSecObj(); if (!s) { toast('Draw a section first'); return; } items = [{ kind: 'section', sec: s }]; }
   else if (o.what === 'elevs') { const z = elevZone(); if (!z) { toast('Add a zone first'); return; } items = [{ kind: 'elevs', zone: z }]; }
   else if (o.what === 'schedule') items = [{ kind: 'schedule' }];
   else if (o.what === 'qto') items = [{ kind: 'qto' }];
   else {
     items = stories().filter(s => hasContent(s.id)).map(s => ({ kind: 'plan', st: s.id })).concat(model.sections.map(s => ({ kind: 'section', sec: s })));
+    items = items.concat((model.callouts || []).map(calloutItem));
     if (model.openings.length || model.zones.length) items.push({ kind: 'schedule' });
+    if (model.openings.length) items.push({ kind: 'types' });
     if (!items.length) items = [{ kind: 'plan', st: curStory }];
   }
   const sheets = items.map((it, i) => composeSheet(it, o.scale, i + 1, items.length));
@@ -3490,10 +3516,10 @@ function openParking() {
 const pinfo = () => model.info || (model.info = { number: '', client: '', by: '', prefix: 'A', revs: [] });
 function openProjectInfo() {
   $('#menu').hidden = true; const I2 = pinfo(), fl = (id, l, v) => `<label class="fld" for="${id}"><span>${l}</span><span class="fin txt"><input id="${id}" type="text" value="${esc(v || '')}"></span></label>`;
-  openDialog('Project info and revisions', 'export', `<p class="intro">Printed in the title block of every sheet. The latest revision letter shows on each sheet, the full list above the title block.</p><div class="dgrid">${fl('piN', 'Project number', I2.number)}${fl('piC', 'Client', I2.client)}${fl('piB', 'Drawn by', I2.by)}${fl('piP', 'Sheet prefix', I2.prefix)}</div>
+  openDialog('Project info and revisions', 'export', `<p class="intro">Printed in the title block of every sheet. The latest revision letter shows on each sheet, the full list above the title block.</p><div class="dgrid">${fl('piN', 'Project number', I2.number)}${fl('piC', 'Client', I2.client)}${fl('piB', 'Drawn by', I2.by)}${fl('piP', 'Sheet prefix', I2.prefix)}<label class="fld" for="piCode"><span>Building code for checks</span><span class="fin"><select id="piCode">${Object.entries(CODES).map(([k, v]) => `<option value="${k}"${(I2.code || 'gen') === k ? ' selected' : ''}>${esc(v.n)}</option>`).join('')}</select></span></label></div><p class="intro">Code profiles use typical published limits for early checks. Always confirm against the current local rules.</p>
     <h5>Revisions</h5><div class="qto"><table><thead><tr><th>Rev</th><th>Date</th><th>Description</th><th></th></tr></thead><tbody>${I2.revs.map((r, i) => `<tr><td>${esc(r.n)}</td><td>${esc(r.d)}</td><td>${esc(r.t)}</td><td><button class="qtog" data-rd="${i}">Remove</button></td></tr>`).join('') || '<tr><td colspan="4">No revisions yet.</td></tr>'}</tbody></table></div>
     <div class="dgrid">${fl('piRt', 'New revision: what changed', '')}</div>`, [['Add revision', false, () => { const t = $('#piRt').value.trim(); if (!t) { toast('Describe the change first'); return; } save1(); const n = String.fromCharCode(65 + I2.revs.length % 26); I2.revs.push({ n, d: new Date().toISOString().slice(0, 10), t: t.slice(0, 80) }); changed(); openProjectInfo(); }], ['Done', true, () => { save1(); changed(); closeDialog(); }]]);
-  const save1 = () => { I2.number = $('#piN').value.trim().slice(0, 30); I2.client = $('#piC').value.trim().slice(0, 60); I2.by = $('#piB').value.trim().slice(0, 30); I2.prefix = $('#piP').value.trim().slice(0, 6) || 'A'; };
+  const save1 = () => { I2.number = $('#piN').value.trim().slice(0, 30); I2.client = $('#piC').value.trim().slice(0, 60); I2.by = $('#piB').value.trim().slice(0, 30); I2.prefix = $('#piP').value.trim().slice(0, 6) || 'A'; I2.code = $('#piCode').value; chkCache = { v: -1, list: [] }; };
   document.querySelectorAll('[data-rd]').forEach(b => b.onclick = () => { pushUndo(); I2.revs.splice(Number(b.dataset.rd), 1); changed(); openProjectInfo(); });
 }
 // versions: named snapshots on this device, restore and compare
@@ -3609,6 +3635,157 @@ function exportBCF() { const C = runChecks(), x = s => String(s).replace(/[<>&"]
   saveFile(`${slug(model.name)}-issues.bcfzip`, zipFiles(files)); toast(`${C.length} issues exported as BCF`); }
 function openToolbar() { openDialog('Toolbar', 'export', `<p class="intro">Tap to show or hide tools. Kept on this device.</p>${TOOLGROUPS.map(([g, ts]) => `<h5>${g}</h5><div class="sugs">${ts.filter(t => t !== 'select').map(t => `<button type="button" class="qtog" data-tb="${t}" aria-pressed="${!hiddenTools.has(t)}">${esc(SHORT[t])}</button>`).join('')}</div>`).join('')}`, [['Done', true, closeDialog]]);
   document.querySelectorAll('[data-tb]').forEach(b => b.onclick = () => { const t = b.dataset.tb; hiddenTools.has(t) ? hiddenTools.delete(t) : hiddenTools.add(t); b.setAttribute('aria-pressed', String(!hiddenTools.has(t))); try { localStorage.setItem(TBKEY, JSON.stringify([...hiddenTools])); } catch (e) { } renderToolbox(); renderChrome && renderChrome(); }); }
+// ---------- v13: sheet sets, callouts, type drawings, presence, OSM context, layouts, codes, render, walk, products, imports, AR survey, present, ArchiCAD ----------
+// building-code profiles: typical values for early checks, always confirm locally
+const CODES = {
+  gen: { n: 'General (typical)', rooms: null, riser: .19, going: .25, door: .9, corr: 1.2, ceil: 2.4, travel: 30 },
+  uk: { n: 'UK (Approved Doc K, NDSS)', rooms: [[/master|double/i, 11.5, 2.75], [/bed|sleep|guest/i, 7.5, 2.15], [/bath|shower/i, 3.5, 1.5], [/kitchen/i, 5, 1.8], [/living|lounge/i, 13, 3]], riser: .22, going: .22, door: .775, corr: .9, ceil: 2.3, travel: 30 },
+  nyc: { n: 'New York City (NYC BC / HMC)', rooms: [[/bed|sleep|guest|master/i, 7.4, 2.44], [/living|lounge/i, 13.9, 2.44], [/kitchen/i, 4.6, 1.8], [/bath|shower/i, 3.3, 1.5]], riser: .197, going: .254, door: .915, corr: 1.12, ceil: 2.44, travel: 76 },
+  de: { n: 'Germany (DIN 18065, LBO typical)', rooms: [[/bed|sleep|guest|master/i, 8, 2.4], [/living|lounge/i, 14, 3], [/kitchen/i, 6, 1.8], [/bath|shower/i, 4, 1.6]], riser: .2, going: .23, door: .9, corr: 1.2, ceil: 2.4, travel: 35 }
+};
+const CODE = () => CODES[pinfo().code] || CODES.gen;
+const codeRooms = () => CODE().rooms || ROOM_MIN;
+// sheet set manager
+function sheetCatalog() { const L = []; for (const s of stories()) if (hasContent(s.id)) L.push({ key: 'plan:' + s.id, label: 'Plan · ' + storyLabel(s), it: { kind: 'plan', st: s.id } }); for (const s of model.sections) L.push({ key: 'sec:' + s.id, label: 'Section ' + (s.name || ''), it: { kind: 'section', sec: s } }); for (const c of model.callouts || []) L.push({ key: 'det:' + c.id, label: `Detail ${c.name} · 1:${c.scale || 20}`, it: calloutItem(c) }); if (model.openings.length || model.zones.length) L.push({ key: 'sched', label: 'Door, window & room schedule', it: { kind: 'schedule' } }); if (model.openings.length) L.push({ key: 'types', label: 'Door and window types', it: { kind: 'types' } }); L.push({ key: 'qto', label: 'Quantities', it: { kind: 'qto' } }); return L; }
+function sheetSetItems() { const C = sheetCatalog(), S = model.sheetSet || {}, ord = S.order || [], off = new Set(S.off || []); C.sort((a, b) => { const i = ord.indexOf(a.key), j = ord.indexOf(b.key); return (i < 0 ? 999 : i) - (j < 0 ? 999 : j); }); return C.map(c => ({ ...c, on: S.off ? !off.has(c.key) : c.key !== 'qto' })); }
+function openSheetSet() {
+  $('#menu').hidden = true; const L = sheetSetItems(), P = pinfo();
+  openDialog('Sheet set', 'export', `<p class="intro">Choose and order the sheets, then export them as one PDF. Numbers follow the order: ${esc(P.prefix || 'A')}-01, ${esc(P.prefix || 'A')}-02 …</p><div class="qto"><table><tbody>${L.map((c, i) => `<tr><td><button class="qtog" data-ss="${i}" aria-pressed="${c.on}">${c.on ? esc(P.prefix || 'A') + '-' + String(L.slice(0, i + 1).filter(x => x.on).length).padStart(2, '0') : 'Off'}</button></td><td>${esc(c.label)}</td><td><button class="qtog" data-su="${i}" aria-label="Move up">↑</button> <button class="qtog" data-sd="${i}" aria-label="Move down">↓</button></td></tr>`).join('')}</tbody></table></div>
+    <div class="dgrid"><label class="fld" for="ssSc"><span>Scale for plans and sections</span><span class="fin"><select id="ssSc">${[50, 100, 200].map(v => `<option value="${v}"${v === (model.sheetSet && model.sheetSet.scale || 100) ? ' selected' : ''}>1:${v}</option>`).join('')}</select></span></label></div>`,
+    [['Export PDF', true, async () => { const sc = Number($('#ssSc').value); store(L, sc); const items = sheetSetItems().filter(c => c.on).map(c => c.it); if (!items.length) { toast('Turn on at least one sheet'); return; } closeDialog(); toast('Composing the sheet set…'); await exportDrawings({ what: 'set', fmt: 'pdf', scale: sc, items }); }]]);
+  const store = (A, sc) => { model.sheetSet = { order: A.map(c => c.key), off: A.filter(c => !c.on).map(c => c.key), scale: sc || (model.sheetSet && model.sheetSet.scale) || 100 }; save(); };
+  const re = A => { store(A); openSheetSet(); };
+  document.querySelectorAll('[data-ss]').forEach(b => b.onclick = () => { const A = sheetSetItems(); A[+b.dataset.ss].on = !A[+b.dataset.ss].on; re(A); });
+  document.querySelectorAll('[data-su]').forEach(b => b.onclick = () => { const A = sheetSetItems(), i = +b.dataset.su; if (i > 0) [A[i - 1], A[i]] = [A[i], A[i - 1]]; re(A); });
+  document.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => { const A = sheetSetItems(), i = +b.dataset.sd; if (i < A.length - 1) [A[i + 1], A[i]] = [A[i], A[i + 1]]; re(A); });
+}
+// detail callouts: a framed part of a plan, exported as its own sheet at 1:5–1:50
+const calloutItem = c => ({ kind: 'plan', st: c.st, ext: { x0: c.x, y0: c.y, x1: c.x + c.w, y1: c.y + c.h }, title: `Detail ${c.name} · ${storyLabel(storyOf(c.st))}`, scale: c.scale || 20 });
+function drawCallout(c) { const C = rectCorners(c); ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.2; ctx.setLineDash([8, 4]); poly(C); ctx.stroke(); ctx.setLineDash([]); const [x, y] = toS(c.x, c.y); ctx.beginPath(); ctx.arc(x, y, 13, 0, 7); ctx.fillStyle = colors.paper; ctx.fill(); ctx.stroke(); ctx.fillStyle = colors.accent; ctx.font = `700 11px ${colors.cond}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(c.name || 'D', x, y - 3); ctx.font = `9px ${colors.cond}`; ctx.fillText('1:' + (c.scale || 20), x, y + 6); }
+// door and window type drawings (one elevation per distinct type)
+function openingTypes() { const m = new Map(); for (const o of model.openings) { const k = [o.type, o.style || '', r3(o.w), r3(o.h)].join('|'); if (!m.has(k)) m.set(k, { o, n: 0, tags: [] }); const e = m.get(k); e.n++; e.tags.push((o.type === 'door' ? 'D' : 'W') + String(model.openings.filter(q => q.type === o.type).indexOf(o) + 1).padStart(3, '0')); } return [...m.values()]; }
+function drawTypes(g, k, x0, y0, aw, ah, col) {
+  const T = openingTypes(), cols = Math.max(1, Math.floor(aw / (60 * k))), cw = aw / cols, s = k * 1000 / 50; let i = 0;
+  for (const t of T) { const cx = x0 + (i % cols) * cw + cw / 2, cy = y0 + Math.floor(i / cols) * 70 * k + 50 * k, o = t.o, W = o.w * s, H = o.h * s, bx = cx - W / 2, by = cy - H - (o.type === 'window' ? o.sill * s * .3 : 0);
+    g.strokeStyle = col.ink; g.lineWidth = .35 * k; g.strokeRect(bx, by, W, H); g.lineWidth = .2 * k;
+    if (o.type === 'door') { if (o.style === 'arch') { g.beginPath(); g.arc(cx, by + W / 2, W / 2, Math.PI, 0); g.stroke(); } else if (o.style !== 'opening') { const lv = o.style === 'double' ? 2 : 1; for (let j = 0; j < lv; j++) { const lx = bx + j * W / lv; g.strokeRect(lx + 1.5 * k, by + 1.5 * k, W / lv - 3 * k, H - 1.5 * k); g.beginPath(); g.moveTo(lx + (j ? 3 * k : W / lv - 3 * k), by + H * .52); g.lineTo(lx + (j ? 6 * k : W / lv - 6 * k), by + H * .52); g.stroke(); } } }
+    else { g.strokeRect(bx + 1.2 * k, by + 1.2 * k, W - 2.4 * k, H - 2.4 * k); if (o.style !== 'fixed' && o.style !== 'niche') { g.beginPath(); g.moveTo(bx + 1.2 * k, by + 1.2 * k); g.lineTo(bx + W - 1.2 * k, by + H / 2); g.lineTo(bx + 1.2 * k, by + H - 1.2 * k); g.setLineDash([1.5 * k, 1 * k]); g.stroke(); g.setLineDash([]); } }
+    g.fillStyle = col.ink; g.textAlign = 'center'; g.textBaseline = 'top'; g.font = `600 ${Math.round(3.2 * k)}px ${col.sans}`; g.fillText(`${o.type === 'door' ? 'Door' : 'Window'} · ${(o.type === 'door' ? DOOR_STYLES : WIN_STYLES)[o.style || (o.type === 'door' ? 'single' : 'casement')] || ''}`, cx, cy + 3 * k);
+    g.font = `${Math.round(2.8 * k)}px ${col.mono}`; g.fillText(`${Math.round(o.w * 1000)} × ${Math.round(o.h * 1000)}${o.type === 'window' ? ' · sill ' + Math.round(o.sill * 1000) : ''} · ${t.n} no.`, cx, cy + 7.5 * k); g.fillText(t.tags.slice(0, 8).join(' '), cx, cy + 11.5 * k, cw - 4 * k); i++; }
+}
+// live presence: see who else has the project open, with their cursors
+const live = { room: null, peers: [], last: 0 };
+async function liveInit() { try { const rm = window.claude && window.claude.use ? await window.claude.use('room') : null; if (!rm) return; live.room = rm; rm.onPeers(p => { live.peers = p.filter(q => !q.self && q.state && q.state.pid === (cloud.pid || model.name)); requestDraw(); renderPeers(); }); } catch (e) { } }
+function liveCursor(p) { if (!live.room || Date.now() - live.last < 120) return; live.last = Date.now(); try { live.room.presence({ pid: cloud.pid || model.name, st: curStory, x: r3(p.x), y: r3(p.y), name: (cloud.user && cloud.user.name) || '' }); } catch (e) { } }
+function renderPeers() { let el = $('#peers'); if (!el) { el = document.createElement('div'); el.id = 'peers'; el.style.cssText = 'position:absolute;top:8px;right:56px;display:flex;gap:4px;z-index:5;pointer-events:none'; ($('#plan') || document.body).parentElement.appendChild(el); } el.innerHTML = live.peers.map((q, i) => `<span style="background:hsl(${i * 70 + 200},60%,45%);color:#fff;border-radius:10px;padding:2px 8px;font:600 11px ${colors.cond}">${esc((q.state.name || 'Guest').split(' ')[0])}</span>`).join(''); }
+function drawPeers() { live.peers.forEach((q, i) => { const s = q.state; if (!s || s.st !== curStory) return; const [x, y] = toS(s.x, s.y); ctx.fillStyle = `hsl(${i * 70 + 200},60%,45%)`; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 4, y + 13); ctx.lineTo(x + 7, y + 8); ctx.lineTo(x + 13, y + 7); ctx.closePath(); ctx.fill(); ctx.font = `600 10px ${colors.cond}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText((s.name || 'Guest').split(' ')[0], x + 12, y + 10); }); }
+// OpenStreetMap context buildings (needs network access to overpass-api.de)
+async function openOSM() {
+  $('#menu').hidden = true; const S = model.geo || {};
+  openDialog('Context from OpenStreetMap', 'site', `<p class="intro">Loads the buildings around a point as grey massing blocks on the ground floor, heights from their OSM tags (or about 3 m a floor). Your building sits at the point. © OpenStreetMap contributors, ODbL.</p><div class="dgrid"><label class="fld" for="osLa"><span>Latitude</span><span class="fin"><input id="osLa" type="text" inputmode="decimal" value="${S.lat ?? 42.6629}"></span></label><label class="fld" for="osLo"><span>Longitude</span><span class="fin"><input id="osLo" type="text" inputmode="decimal" value="${S.lon ?? 21.1655}"></span></label><label class="fld" for="osR"><span>Radius</span><span class="fin"><input id="osR" type="text" inputmode="decimal" value="${S.r || 150}"><i>m</i></span></label></div><p class="intro" id="osMsg"></p>`,
+    [['Load buildings', true, async () => { const la = parseFloat($('#osLa').value), lo = parseFloat($('#osLo').value), R = Math.min(500, Math.max(30, parseFloat($('#osR').value) || 150)); if (!isFinite(la) || !isFinite(lo)) { $('#osMsg').textContent = 'Enter a latitude and longitude.'; return; } $('#osMsg').textContent = 'Loading…';
+      try { const q = `[out:json][timeout:25];way["building"](around:${R},${la},${lo});out tags geom;`, res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q) }); if (!res.ok) throw new Error(res.status); const J = await res.json(), kx = 111320 * Math.cos(la * Math.PI / 180), ky = 110540, g = stories()[0]; let n = 0; pushUndo(); model.morphs = model.morphs.filter(m => !m.ctx);
+        for (const w of J.elements || []) { const pts = (w.geometry || []).map(p => [r3((p.lon - lo) * kx), r3((la - p.lat) * ky)]); if (pts.length > 3 && Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < .01) pts.pop(); if (pts.length < 3 || Math.abs(polyArea(pts)) < 4) continue; if (pts.some(([x, y]) => Math.hypot(x, y) < 1) && ptInPoly(0, 0, pts)) continue; const t = w.tags || {}, h = parseFloat(t.height) || (parseFloat(t['building:levels']) || 2) * 3; try { const m = mk.rect('morph', g.id, null, { pts, mh: r3(Math.min(200, Math.max(2.5, h))) }); m.ctx = 1; m.name = t.name || ''; n++; } catch (e) { } }
+        model.geo = { lat: la, lon: lo, r: R }; changed(); closeDialog(); fitView(); toast(`${n} context buildings from OpenStreetMap`); } catch (e) { $('#osMsg').textContent = 'Could not reach OpenStreetMap from here. Inside Claude outside sites are blocked; the GitHub version of the app can load them.'; } }]]);
+}
+// floor-plan option generator from a brief
+function genLayouts(b) {
+  const A = Math.max(30, b.area), asp = b.pw && b.pd ? Math.max(.6, Math.min(2.2, b.pw / b.pd)) : 1.35, W = r3(Math.round(Math.sqrt(A * asp) * 10) / 10), D = r3(Math.round(A / W * 10) / 10), cor = 1.2;
+  const opts2 = [];
+  for (const v of [0, 1, 2]) {
+    const R = [], front = v === 1 ? D * .42 : D * .46, back = D - front - cor, y0 = 0, yb = front + cor;
+    if (v === 2) { const lw = W * .42; R.push({ n: 'Living / Kitchen', x: 0, y: 0, w: lw, h: D }); R.push({ n: 'Hall', x: lw, y: 0, w: cor, h: D }); const rx = lw + cor, rw = W - rx, rooms = []; for (let i = 0; i < b.bed; i++) rooms.push({ n: i ? 'Bedroom' : 'Master bedroom', k: i ? 1 : 1.35 }); for (let i = 0; i < b.bath; i++) rooms.push({ n: 'Bath', k: .6 }); const tot = rooms.reduce((a, r) => a + r.k, 0); let y = 0; for (const r of rooms) { const h = D * r.k / tot; R.push({ n: r.n, x: rx, y, w: rw, h }); y += h; } }
+    else { const fy = v === 1 ? yb : 0, by = v === 1 ? 0 : yb, fd = front, bd = back; R.push({ n: 'Living / Kitchen', x: 0, y: fy, w: W * .72, h: fd }); R.push({ n: 'Entrance', x: W * .72, y: fy, w: W * .28, h: fd }); R.push({ n: 'Hall', x: 0, y: v === 1 ? back : front, w: W, h: cor });
+      const rooms = []; for (let i = 0; i < b.bed; i++) rooms.push({ n: i ? 'Bedroom' : 'Master bedroom', k: i ? 1 : 1.3 }); for (let i = 0; i < b.bath; i++) rooms.push({ n: 'Bath', k: .55 }); const tot = rooms.reduce((a, r) => a + r.k, 0); let x = 0; for (const r of rooms) { const w = W * r.k / tot; R.push({ n: r.n, x, y: by, w, h: bd }); x += w; } }
+    opts2.push({ W, D, rooms: R.map(r => ({ ...r, x: r3(r.x), y: r3(r.y), w: r3(r.w), h: r3(r.h) })), name: ['Front living, bedrooms behind', 'Bedrooms in front, garden living', 'Living on one side, rooms along a hall'][v] });
+  }
+  return opts2;
+}
+function buildLayout(L) {
+  const b = storyBounds(curStory), ox = b ? b.x + b.w + 3 : 0, oy = b ? b.y : 0, st = curStory, grp = uid(), ws = [], key = (a, c) => [a, c].map(p => p.map(v => v.toFixed(2)).join(',')).sort().join('|'), seen = new Set();
+  const addW = (a, c, t) => { if (Math.hypot(c[0] - a[0], c[1] - a[1]) < .2) return; const k2 = key(a, c); if (seen.has(k2)) return; seen.add(k2); const w = mk.wall(st, ox + a[0], oy + a[1], ox + c[0], oy + c[1], { t }); w.grp = grp; ws.push(w); };
+  pushUndo(); const C = [[0, 0], [L.W, 0], [L.W, L.D], [0, L.D]]; for (let i = 0; i < 4; i++) addW(C[i], C[(i + 1) % 4], .3);
+  // partitions: every room edge not on the outline, split where other rooms' edges meet
+  const xs = new Set([0, L.W]), ys = new Set([0, L.D]); for (const r of L.rooms) { xs.add(r.x); xs.add(r3(r.x + r.w)); ys.add(r.y); ys.add(r3(r.y + r.h)); }
+  const on = (x, y) => L.rooms.filter(r => x > r.x - 1e-3 && x < r.x + r.w + 1e-3 && y > r.y - 1e-3 && y < r.y + r.h + 1e-3).length;
+  const X = [...xs].sort((a, b) => a - b), Y = [...ys].sort((a, b) => a - b);
+  for (const x of X) { if (x < 1e-3 || x > L.W - 1e-3) continue; let s0 = null; for (let i = 0; i + 1 < Y.length; i++) { const ym = (Y[i] + Y[i + 1]) / 2, edge = L.rooms.some(r => (Math.abs(r.x - x) < 1e-3 || Math.abs(r.x + r.w - x) < 1e-3) && ym > r.y && ym < r.y + r.h) && on(x - .05, ym) && on(x + .05, ym) && L.rooms.find(r => ym > r.y && ym < r.y + r.h && x - .05 > r.x && x - .05 < r.x + r.w) !== L.rooms.find(r => ym > r.y && ym < r.y + r.h && x + .05 > r.x && x + .05 < r.x + r.w); if (edge && s0 == null) s0 = Y[i]; if (!edge && s0 != null) { addW([x, s0], [x, Y[i]], .12); s0 = null; } } if (s0 != null) addW([x, s0], [x, Y.at(-1)], .12); }
+  for (const y of Y) { if (y < 1e-3 || y > L.D - 1e-3) continue; let s0 = null; for (let i = 0; i + 1 < X.length; i++) { const xm = (X[i] + X[i + 1]) / 2, A2 = L.rooms.find(r => xm > r.x && xm < r.x + r.w && y - .05 > r.y && y - .05 < r.y + r.h), B2 = L.rooms.find(r => xm > r.x && xm < r.x + r.w && y + .05 > r.y && y + .05 < r.y + r.h), edge = A2 && B2 && A2 !== B2; if (edge && s0 == null) s0 = X[i]; if (!edge && s0 != null) { addW([s0, y], [X[i], y], .12); s0 = null; } } if (s0 != null) addW([s0, y], [X.at(-1), y], .12); }
+  const near = (x, y) => { let best = null, bd = .2; for (const w of ws) { const d = segDist({ x, y }, w); if (d.d < bd) { bd = d.d; best = w; } } return best; };
+  const put = (x, y, type, w0) => { const w = near(ox + x, oy + y); if (!w) return; const g = wgeo(w), t = (ox + x - w.x1) * g.ux + (oy + y - w.y1) * g.uy, L2 = wlen(w), ow = Math.min(w0, L2 - .3); if (ow < .5) return; try { mk.opening(w, type, r3(Math.min(L2 - ow / 2 - .1, Math.max(ow / 2 + .1, t))), { w: ow }); } catch (e) { } };
+  const hall = L.rooms.find(r => r.n === 'Hall');
+  for (const r of L.rooms) { try { mk.rect('zone', st, { x: ox + r.x, y: oy + r.y, w: r.w, h: r.h }, { name: r.n }); } catch (e) { }
+    if (hall && r !== hall) { const cx = r.x + r.w / 2, cy = r.y + r.h / 2; if (Math.abs(r.y + r.h - hall.y) < .01) put(Math.min(r.x + r.w - .6, r.x + .7), r.y + r.h, 'door', .9); else if (Math.abs(r.y - hall.y - hall.h) < .01) put(Math.min(r.x + r.w - .6, r.x + .7), r.y, 'door', .9); else if (Math.abs(r.x - hall.x - hall.w) < .01) put(r.x, Math.min(r.y + r.h - .6, r.y + .7), 'door', .9); else if (Math.abs(r.x + r.w - hall.x) < .01) put(r.x + r.w, cy, 'door', .9); }
+    const bath = /bath/i.test(r.n); if (r.y < .01) put(r.x + r.w / 2, 0, 'window', bath ? .6 : Math.min(1.8, r.w * .45)); else if (Math.abs(r.y + r.h - L.D) < .01) put(r.x + r.w / 2, L.D, 'window', bath ? .6 : Math.min(1.8, r.w * .45)); else if (r.x < .01) put(0, r.y + r.h / 2, 'window', bath ? .6 : Math.min(1.8, r.h * .45)); else if (Math.abs(r.x + r.w - L.W) < .01) put(L.W, r.y + r.h / 2, 'window', bath ? .6 : Math.min(1.8, r.h * .45)); }
+  const ent = L.rooms.find(r => r.n === 'Entrance') || L.rooms[0]; if (ent.y < .01) put(ent.x + ent.w / 2, 0, 'door', 1); else put(ent.x + ent.w / 2, L.D, 'door', 1);
+  changed(); fitView(); return ws.length;
+}
+function openLayoutGen() {
+  $('#menu').hidden = true; const B = opts.brief || (opts.brief = { bed: 3, bath: 1, area: 110, pw: 0, pd: 0 }), num2 = id => Math.max(0, parseFloat(String($(id).value).replace(',', '.')) || 0);
+  const Ls = genLayouts(B), cards = Ls.map((L, i) => { const k = 150 / Math.max(L.W, L.D); return `<button type="button" class="qtog" data-lo="${i}" style="display:block;text-align:left;padding:6px;margin:4px 0"><svg width="${L.W * k + 4}" height="${L.D * k + 4}" viewBox="-2 -2 ${L.W * k + 4} ${L.D * k + 4}">${L.rooms.map(r => `<rect x="${r.x * k}" y="${r.y * k}" width="${r.w * k}" height="${r.h * k}" fill="${/bath/i.test(r.n) ? '#dbe8f5' : /bed/i.test(r.n) ? '#efe3f3' : /hall|entr/i.test(r.n) ? '#eee' : '#f7ecd9'}" stroke="#333" stroke-width="1"/><text x="${(r.x + r.w / 2) * k}" y="${(r.y + r.h / 2) * k}" font-size="8" text-anchor="middle" fill="#333">${esc(r.n.split(' ')[0])}</text>`).join('')}</svg><span>Option ${i + 1}: ${esc(L.name)} · ${fmt(L.W)} × ${fmt(L.D)} m</span></button>`; }).join('');
+  openDialog('Plan options from a brief', 'zone', `<div class="dgrid"><label class="fld" for="lgB"><span>Bedrooms</span><span class="fin"><input id="lgB" type="text" inputmode="numeric" value="${B.bed}"></span></label><label class="fld" for="lgT"><span>Bathrooms</span><span class="fin"><input id="lgT" type="text" inputmode="numeric" value="${B.bath}"></span></label><label class="fld" for="lgA"><span>Floor area</span><span class="fin"><input id="lgA" type="text" inputmode="decimal" value="${B.area}"><i>m²</i></span></label><label class="fld" for="lgW"><span>Plot width (optional)</span><span class="fin"><input id="lgW" type="text" inputmode="decimal" value="${B.pw || ''}"><i>m</i></span></label><label class="fld" for="lgD"><span>Plot depth (optional)</span><span class="fin"><input id="lgD" type="text" inputmode="decimal" value="${B.pd || ''}"><i>m</i></span></label></div><p class="intro">Tap an option to build it on this story: walls, doors, windows and room zones, grouped. Starting points to edit, not finished plans.</p>${cards}`,
+    [['Update options', false, () => { Object.assign(B, { bed: Math.min(6, Math.round(num2('#lgB'))), bath: Math.min(4, Math.max(1, Math.round(num2('#lgT')))), area: Math.max(30, num2('#lgA')), pw: num2('#lgW'), pd: num2('#lgD') }); openLayoutGen(); }]]);
+  document.querySelectorAll('[data-lo]').forEach(bt => bt.onclick = () => { const n = buildLayout(Ls[+bt.dataset.lo]); closeDialog(); toast(`Option ${+bt.dataset.lo + 1} built: ${n} walls. Undo removes it`); });
+}
+// render: a large, softer-lit still of the 3D view, and a prompt for AI image tools
+async function render3HQ() {
+  if (!renderer) return; const pr = renderer.getPixelRatio(), tm = renderer.toneMapping, ex = renderer.toneMappingExposure, st = renderer.shadowMap.type;
+  renderer.setPixelRatio(Math.min(3, (window.devicePixelRatio || 1) * 2)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.needsUpdate = true; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); render3();
+  const blob = await new Promise(r => renderer.domElement.toBlob(r, 'image/png')); renderer.setPixelRatio(pr); renderer.toneMapping = tm; renderer.toneMappingExposure = ex; renderer.shadowMap.type = st; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); request3();
+  if (!blob) { toast('Could not capture the view'); return; }
+  openDialog('Render', 'image', `<p class="intro">A high-resolution still of this view. For a photoreal image, take it to an AI image tool with the prompt below.</p><textarea id="rdP" rows="5" style="width:100%" readonly>Photorealistic architectural visualisation of a ${stories().length}-storey ${model.roofs.some(r => r.pitch > 0) ? 'pitched-roof' : 'flat-roof'} building, same massing, openings and camera angle as the reference image, ${(model.zones[0] && FLOORS[model.zones[0].floor]) || 'warm'} materials, soft daylight, realistic landscaping, 35 mm lens, high detail.</textarea><p class="intro" id="rdM"></p>`,
+    [['Save image', true, () => saveFile(`${slug(model.name)}-render.png`, blob)], ['Better prompt from Claude', false, async () => { const caps = sampleFn ? await sampleFn.limits().catch(() => null) : null; if (!caps || !caps.images) { $('#rdM').textContent = 'Needs Claude with image access.'; return; } $('#rdM').textContent = 'Claude is looking at the view…'; try { const r = await sampleFn('Write one paragraph (under 90 words): a prompt for an AI image generator to turn this 3D model view into a photoreal architectural render. Keep the exact massing, roof, openings and camera; suggest fitting materials, light and setting. Reply with the prompt only.', { images: [blob], cache: false }); $('#rdP').value = (r.text || '').trim(); $('#rdM').textContent = ''; } catch (e) { $('#rdM').textContent = 'Could not get a prompt right now.'; } }]]);
+}
+// walkthrough: first-person camera; drag to look, buttons or WASD to walk, record to video
+const walk = { on: false, x: 0, z: 0, y: 1.6, yaw: 0, pitch: 0, keys: new Set(), rec: null };
+function walkToggle() {
+  walk.on = !walk.on; const b = $('#walk3'); if (b) b.setAttribute('aria-pressed', String(walk.on)); let pad = $('#walkPad');
+  if (walk.on) { const st = storyOf(curStory) || { elev: 0 }; walk.x = camera.position.x; walk.z = camera.position.z; walk.y = st.elev + 1.6; walk.yaw = Math.atan2(orbit.tz - walk.z, orbit.tx - walk.x); walk.pitch = 0;
+    if (!pad) { pad = document.createElement('div'); pad.id = 'walkPad'; pad.style.cssText = 'position:absolute;left:10px;bottom:56px;display:grid;grid-template-columns:repeat(3,44px);gap:4px;z-index:6'; pad.innerHTML = ['', '▲', '', '◀', '▼', '▶', '', '⏺', ''].map((t, i) => t ? `<button type="button" data-wk="${i}" style="height:44px;border-radius:10px;font-size:16px">${t}</button>` : '<span></span>').join(''); renderer.domElement.parentElement.appendChild(pad);
+      const map = { 1: 'w', 3: 'a', 4: 's', 5: 'd' }; pad.querySelectorAll('[data-wk]').forEach(bt => { const k2 = map[bt.dataset.wk]; if (k2) { bt.onpointerdown = () => { walk.keys.add(k2); walkLoop(); }; bt.onpointerup = bt.onpointerleave = () => walk.keys.delete(k2); } else bt.onclick = walkRecord; }); }
+    pad.hidden = false; toast('Walk: drag to look, arrows or WASD to move'); } else if (pad) pad.hidden = true;
+  request3();
+}
+let walkRaf = null; function walkLoop() { if (walkRaf) return; let t0 = performance.now(); const step = t => { const dt = Math.min(.05, (t - t0) / 1000); t0 = t; const v = 1.4 * dt, f = (walk.keys.has('w') ? 1 : 0) - (walk.keys.has('s') ? 1 : 0), sd = (walk.keys.has('d') ? 1 : 0) - (walk.keys.has('a') ? 1 : 0); if (f || sd) { walk.x += (Math.cos(walk.yaw) * f - Math.sin(walk.yaw) * sd) * v; walk.z += (Math.sin(walk.yaw) * f + Math.cos(walk.yaw) * sd) * v; request3(); } if (walk.on && (walk.keys.size || walk.rec)) walkRaf = requestAnimationFrame(step); else walkRaf = null; }; walkRaf = requestAnimationFrame(step); }
+function walkCam() { camera.position.set(walk.x, walk.y, walk.z); camera.lookAt(walk.x + Math.cos(walk.yaw) * Math.cos(walk.pitch), walk.y + Math.sin(walk.pitch), walk.z + Math.sin(walk.yaw) * Math.cos(walk.pitch)); }
+function walkRecord() { if (walk.rec) { walk.rec.stop(); return; } const cvs = renderer.domElement; if (!cvs.captureStream || !window.MediaRecorder) { toast('Recording is not supported in this browser'); return; } const ch = []; const mr = new MediaRecorder(cvs.captureStream(30), { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' }); mr.ondataavailable = e => e.data.size && ch.push(e.data); mr.onstop = () => { walk.rec = null; saveAny(`${slug(model.name)}-walkthrough.webm`, new Blob(ch, { type: 'video/webm' })); toast('Walkthrough recorded'); }; walk.rec = mr; mr.start(); toast('Recording… tap ⏺ again to stop'); const keep = () => { if (walk.rec) { request3(); requestAnimationFrame(keep); } }; keep(); }
+// product library: finishes with a colour and a typical price, used by zones and quantities
+// imported 3D objects (GLB / glTF / OBJ), kept on this device
+const IDB = { db: null, open() { return this.db || (this.db = new Promise((res, rej) => { const r = indexedDB.open('pocketbim-assets', 1); r.onupgradeneeded = () => r.result.createObjectStore('a'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); }, async put(k, v) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('a', 'readwrite'); t.objectStore('a').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }, async get(k) { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction('a').objectStore('a').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); } };
+const loaderP = {}; const loadEx = (name, path) => loaderP[name] || (loaderP[name] = new Promise((res, rej) => { if (THREE[name]) return res(); const sc = document.createElement('script'); sc.src = `https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/${path}`; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); }));
+const custCache = new Map();
+async function custParse(ref) { if (custCache.has(ref)) return custCache.get(ref); const p = (async () => { const a = await IDB.get(ref); if (!a) return null; if (a.kind === 'obj') { await loadEx('OBJLoader', 'OBJLoader.js'); return new THREE.OBJLoader().parse(new TextDecoder().decode(a.data)); } await loadEx('GLTFLoader', 'GLTFLoader.js'); return await new Promise((res, rej) => new THREE.GLTFLoader().parse(a.data, '', g => res(g.scene), rej)); })(); custCache.set(ref, p); return p; }
+function custMesh(f, e, addTo) { const holder = new THREE.Group(); holder.position.set(f.x, e + (f.elev || 0), f.y); holder.rotation.y = -(f.rot || 0) * Math.PI / 180; addTo(holder);
+  custParse(f.ref).then(obj => { if (!obj) return; const o = obj.clone(true), b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()); o.position.set(-c.x, -b.min.y, -c.z); const g = new THREE.Group(); g.add(o); g.scale.set(f.w / (sz.x || 1), f.h / (sz.y || 1), f.d / (sz.z || 1)); o.traverse(m => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; } }); holder.add(g); request3(); }).catch(() => { }); }
+function openObjImport() { $('#menu').hidden = true; const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.glb,.gltf,.obj'; fi.onchange = async () => { const f = fi.files[0]; if (!f) return; const kind = /\.obj$/i.test(f.name) ? 'obj' : 'glb', ref = 'obj-' + uid(); try { await IDB.put(ref, { kind, name: f.name, data: await f.arrayBuffer() }); const o = await custParse(ref); const b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3()), big = Math.max(sz.x, sz.y, sz.z), sc = big > 50 ? .001 : big > 8 ? .01 : 1; const c = toW(cv.clientWidth / 2, cv.clientHeight / 2); pushUndo(); mk.furn(curStory, c.x, c.y, { type: 'custom', w: r3(Math.max(.05, sz.x * sc)), d: r3(Math.max(.05, sz.z * sc)), h: r3(Math.max(.05, sz.y * sc)) }); const fo = model.furniture.at(-1); fo.ref = ref; fo.name = f.name.replace(/\.(glb|gltf|obj)$/i, '').slice(0, 30); changed(); toast(`${fo.name} placed, ${fmt(fo.w)} × ${fmt(fo.d)} × ${fmt(fo.h)} m. It is stored on this device`); } catch (e) { toast('Could not read that model. GLB or OBJ work best'); } }; fi.click(); }
+// AR survey: tap the corners of a room on the floor, then make walls from them
+async function arSurvey() {
+  if (xr.session) return; const pts = [], marks = [];
+  try { const s0 = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: $('#arOv') } }); xr.session = s0; xr.survey = true; $('#arOv').hidden = false; renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local'); await renderer.xr.setSession(s0);
+    xr.bg = scene.background; scene.background = null; group.visible = false; xr.reticle = new THREE.Mesh(new THREE.RingGeometry(.04, .06, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x27c26b })); xr.reticle.matrixAutoUpdate = false; xr.reticle.visible = false; scene.add(xr.reticle);
+    const vw = await s0.requestReferenceSpace('viewer'); xr.hitSrc = await s0.requestHitTestSource({ space: vw }); $('#arMsg').textContent = 'Point at the floor in a corner and tap. Go round the room, then tap Done.';
+    let done = $('#arDone'); if (!done) { done = document.createElement('button'); done.id = 'arDone'; done.textContent = 'Done'; done.style.cssText = 'margin-left:8px'; $('#arMsg').after(done); } done.hidden = false;
+    done.onclick = () => { s0.end(); if (pts.length < 3) { toast('Tap at least three corners'); return; } const b = storyBounds(curStory), ox = (b ? b.x + b.w + 3 : 0) - Math.min(...pts.map(p => p[0])), oy = (b ? b.y : 0) - Math.min(...pts.map(p => p[1])), grp = uid(); pushUndo(); for (let i = 0; i < pts.length; i++) { const a = pts[i], c = pts[(i + 1) % pts.length]; try { const w = mk.wall(curStory, r3(a[0] + ox), r3(a[1] + oy), r3(c[0] + ox), r3(c[1] + oy), { t: .12 }); w.grp = grp; } catch (e) { } } changed(); fitView(); const per = pts.reduce((a, p, i) => a + Math.hypot(pts[(i + 1) % pts.length][0] - p[0], pts[(i + 1) % pts.length][1] - p[1]), 0); toast(`Surveyed ${pts.length} corners, ${fmt(per)} m round. Check against a tape`); };
+    s0.addEventListener('select', () => { if (!xr.reticle.visible) return; const p = new THREE.Vector3().setFromMatrixPosition(xr.reticle.matrix); pts.push([p.x, p.z]); const m = new THREE.Mesh(new THREE.SphereGeometry(.03, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff5a36 })); m.position.copy(p); scene.add(m); marks.push(m); $('#arMsg').textContent = `${pts.length} corner${pts.length > 1 ? 's' : ''}${pts.length > 1 ? ` · last side ${fmt(Math.hypot(pts.at(-1)[0] - pts.at(-2)[0], pts.at(-1)[1] - pts.at(-2)[1]))} m` : ''}. Tap Done to finish.`; });
+    s0.addEventListener('end', () => { for (const m of marks) scene.remove(m); group.visible = true; xr.survey = false; if ($('#arDone')) $('#arDone').hidden = true; arEnd(); });
+    renderer.setAnimationLoop((t, frame) => { if (frame && xr.hitSrc) { const ref = renderer.xr.getReferenceSpace(), hits = frame.getHitTestResults(xr.hitSrc); if (hits.length) { xr.reticle.visible = true; xr.reticle.matrix.fromArray(hits[0].getPose(ref).transform.matrix); } else xr.reticle.visible = false; } renderer.render(scene, camera); });
+  } catch (e) { toast('AR survey needs Chrome on an ARCore phone, opened outside the preview'); arEnd(); }
+}
+// presentation: full-screen slides of every sheet plus the 3D view
+async function openPresent() {
+  $('#menu').hidden = true; toast('Preparing slides…'); const items = sheetSetItems().filter(c => c.on && c.it.kind !== 'qto').map(c => c.it), slides = items.map((it, i) => { const s = composeSheet(it, (model.sheetSet && model.sheetSet.scale) || 100, i + 1, items.length); return { t: s.title, u: s.canvas.toDataURL('image/jpeg', .9) }; });
+  if (renderer) { render3(); slides.unshift({ t: '3D', u: renderer.domElement.toDataURL('image/jpeg', .92) }); }
+  let i = 0; const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:#111;z-index:99;display:flex;flex-direction:column'; ov.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden"><img id="pvI" style="max-width:100%;max-height:100%;object-fit:contain;background:#fff"></div><div style="display:flex;gap:8px;align-items:center;justify-content:center;padding:10px;color:#eee;font:600 13px ${colors.sans}"><button id="pvP">◀</button><span id="pvT"></span><button id="pvN">▶</button><button id="pvX">Close</button></div>`; document.body.appendChild(ov);
+  const show = () => { $('#pvI').src = slides[i].u; $('#pvT').textContent = `${i + 1} / ${slides.length} · ${slides[i].t} · ${model.name}`; }, go = d => { i = (i + d + slides.length) % slides.length; show(); }, key = e => { if (e.key === 'ArrowRight' || e.key === ' ') go(1); else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'Escape') close2(); }, close2 = () => { document.removeEventListener('keydown', key, true); ov.remove(); };
+  $('#pvP').onclick = () => go(-1); $('#pvN').onclick = () => go(1); $('#pvX').onclick = close2; document.addEventListener('keydown', key, true); let sx = null; ov.addEventListener('pointerdown', e => sx = e.clientX); ov.addEventListener('pointerup', e => { if (sx != null && Math.abs(e.clientX - sx) > 50) go(e.clientX < sx ? 1 : -1); sx = null; }); try { ov.requestFullscreen && ov.requestFullscreen(); } catch (e) { } show();
+}
+// ArchiCAD: IFC for the file, plus a ready prompt for Claude with the Tapir ArchiCAD connector
+function archicadPrompt() { const r = v => Math.round(v * 100) / 100, st = stories(); return `Using the ArchiCAD connector (Tapir), create a NEW ArchiCAD project file (do not change the open project) and build this model. Units metres, plan y axis points south (flip it for ArchiCAD). Use native ArchiCAD elements: walls, slabs, doors, windows, zones, columns, roofs.\n` + JSON.stringify({ stories: st.map(s => ({ name: s.name, elev: s.elev, h: s.h })), walls: model.walls.map(w => ({ story: storyOf(w.st).name, x1: r(w.x1), y1: r(w.y1), x2: r(w.x2), y2: r(w.y2), t: w.t, h: w.h })), openings: model.openings.map(o => { const w = wallById(o.wid); return w && { wall: model.walls.indexOf(w), type: o.type, pos: r(o.pos), w: o.w, h: o.h, sill: o.sill }; }).filter(Boolean), slabs: model.slabs.map(s => ({ story: storyOf(s.st).name, pts: rectCorners(s).map(p => p.map(r)), t: s.t })), zones: model.zones.map(z => ({ story: storyOf(z.st).name, name: z.name, pts: rectCorners(z).map(p => p.map(r)) })), columns: model.columns.map(c => ({ story: storyOf(c.st).name, x: r(c.x), y: r(c.y), w: c.w, d: c.d, h: c.h })), roofs: model.roofs.map(f => ({ story: storyOf(f.st).name, pts: rectCorners(f).map(p => p.map(r)), shape: f.shape, pitch: f.pitch, base: f.base })) }); }
+function openArchicad() { $('#menu').hidden = true; const P = archicadPrompt(); openDialog('Send to ArchiCAD', 'export', `<p class="intro"><b>As a file:</b> export IFC and open it in ArchiCAD (File › Open, or Interoperability › Merge). Walls, slabs, openings, roofs, zones, stairs and columns come in as native elements.</p><p class="intro"><b>Built by Claude:</b> with the Tapir ArchiCAD connector set up, paste this into Claude. It builds the model in a new ArchiCAD file.</p><textarea id="acP" rows="7" style="width:100%" readonly>${esc(P)}</textarea>`, [['Export IFC', false, () => exportDrawings({ what: 'ifc' })], ['Copy prompt', true, async () => { try { await navigator.clipboard.writeText(P); toast('Prompt copied'); } catch (e) { const t = $('#acP'); t.focus(); t.select(); toast('Select all and copy'); } }]]); }
+
+setTimeout(liveInit, 0);
+cv.addEventListener('pointermove', e => { if (live.room) { const r = cv.getBoundingClientRect(); liveCursor(toW(e.clientX - r.left, e.clientY - r.top)); } });
+document.addEventListener('keyup', e => walk.keys.delete(String(e.key).toLowerCase()));
 function loadUnderlay(file, old) {
   if (isPdf(file)) { toast('Reading the PDF…'); pdfToImageFile(file).then(f2 => loadUnderlay(f2, old), () => toast('Could not read that PDF')); return; }
   const rd = new FileReader();
@@ -3665,7 +3842,8 @@ function quantities() {
   for (const f of model.footings || []) if (storyOf(f.st) && live(f)) { const L = Math.hypot(f.x2 - f.x1, f.y2 - f.y1); add('Structure', 'Strip footings', 'm', L, 'fndL'); add('Structure', 'Concrete in footings', 'm³', L * f.w * f.d, 'fndV'); }
   for (const r of model.ramps || []) if (storyOf(r.st) && live(r)) add('Structure', 'Ramps', 'm²', r.w * r.h, 'ramp');
   for (const q of model.pipes || []) if (storyOf(q.st)) add('Services', `${(PIPE_SYS[q.sys] || PIPE_SYS.water)[0]} ${q.sys === 'duct' || q.sys === 'vent' ? Math.round(q.d * 1000) + ' mm' : 'Ø' + Math.round(q.d * 1000)}`, 'm', Math.hypot(q.x2 - q.x1, q.y2 - q.y1), `pipe:${q.sys}${Math.round(q.d * 1000)}`);
-  for (const g of model.morphs || []) if (storyOf(g.st)) add('Structure', 'Morph volumes', 'm³', areaOf(g) * g.mh, 'morphV');
+  for (const g of model.morphs || []) if (storyOf(g.st) && !g.ctx) add('Structure', 'Morph volumes', 'm³', areaOf(g) * g.mh, 'morphV');
+  for (const z of model.zones) if (storyOf(z.st)) { if (z.fprod && PRODUCTS[z.fprod]) add('Finishes', PRODUCTS[z.fprod][0], 'm²', areaOf(z), 'prod:' + z.fprod); if (z.wprod && PRODUCTS[z.wprod]) add('Finishes', PRODUCTS[z.wprod][0], 'm²', perimOf(z) * ceilOf(z), 'prod:' + z.wprod); }
   for (const d of model.dormers || []) if (storyOf(d.st) && live(d)) add('Roofs', 'Dormers', 'pcs', 1, 'dormer');
   for (const r of model.roofs) if (storyOf(r.st) && live(r) && (r.gut || r.fas > 0)) { const E2 = eaveEdges(r), L = E2.reduce((a, [p, q]) => a + Math.hypot(q[0] - p[0], q[1] - p[1]), 0); if (r.gut && L) { add('Roofs', 'Gutters', 'm', L, 'gut'); add('Roofs', 'Downpipes', 'pcs', new Set(E2.flat().map(c => c.map(v => v.toFixed(3)).join(','))).size, 'dpipe'); } if (r.fas > 0 && L) add('Roofs', 'Fascia boards', 'm', L, 'fas'); }
   for (const f of model.fixtures || []) if (storyOf(f.st) && live(f) && FIXT()[f.type]) add('Electrical & fixtures', FIXT()[f.type].n, 'pcs', 1, 'fix:' + f.type);
@@ -3703,7 +3881,7 @@ function runChecks() {
     if (bad.length) out.push({ kind: 'wall', id: bad[0].id, st: bad[0].st, msg: `${bad.length} wall${bad.length > 1 ? 's' : ''} past the ${fmt(si.setback, 1)} m setback line` });
   }
   for (const z of model.zones) {
-    if (!storyOf(z.st)) continue; const A = areaOf(z), rule = ROOM_MIN.find(r => r[0].test(z.name)), nm = `${z.num || ''} ${z.name}`.trim();
+    if (!storyOf(z.st)) continue; const A = areaOf(z), rule = codeRooms().find(r => r[0].test(z.name)), nm = `${z.num || ''} ${z.name}`.trim();
     if (rule && A < rule[1]) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${nm}: ${fmt(A)} m², under the usual ${rule[1]} m²` });
     if (rule && Math.min(z.w, z.h) < rule[2]) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${nm}: narrowest side ${fmt(Math.min(z.w, z.h))} m, under ${fmt(rule[2])} m` });
     if (!NO_DAYLIGHT.test(z.name)) {
@@ -3723,21 +3901,21 @@ function runChecks() {
   }
   for (const s of model.stairs) {
     const st = storyOf(s.st); if (!st) continue; const G = stairSteps(s), n = G.n, rh = st.h / n, go = Math.min(...G.steps.filter(q => !q.land).map(q => q.d)), fl = G.shape === 'straight' ? null : Math.min(Math.max(s.fw || 1, .6), s.dir === 'n' || s.dir === 's' ? s.w : s.h);
-    if (rh > .19) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: risers ${Math.round(rh * 1000)} mm, over 190 mm` });
-    if (go < .25) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: goings ${Math.round(go * 1000)} mm, under 250 mm. Make the run longer` });
+    if (rh > CODE().riser + 1e-4) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: risers ${Math.round(rh * 1000)} mm, over ${Math.round(CODE().riser * 1000)} mm` });
+    if (go < CODE().going - 1e-4) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: goings ${Math.round(go * 1000)} mm, under ${Math.round(CODE().going * 1000)} mm. Make the run longer` });
     if (2 * rh + go < .57 || 2 * rh + go > .65) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: 2R+G = ${Math.round((2 * rh + go) * 1000)} mm, outside 570 to 650 mm` });
     if (stairW.get(s) < .8 || fl != null && fl < .8) out.push({ kind: 'stair', id: s.id, st: s.st, msg: `Stair: width ${fmt(fl != null ? fl : stairW.get(s))} m, under 0.80 m` });
   }
   // accessibility: entrance doors, turning space, corridor widths
-  for (const o of model.openings) { if (o.type !== 'door' || o.reno === 'demo') continue; const w = wallById(o.wid); if (w && isExtWall(w) && o.w < .9) out.push({ kind: 'opening', id: o.id, st: w.st, msg: `Access: entrance door ${fmt(o.w)} m wide, under 0.90 m (0.85 m clear)` }); }
-  for (const z of model.zones) { const n = String(z.name); if (/bath|shower|\bwc\b|toilet/i.test(n) && Math.min(z.w, z.h) < 1.5 && areaOf(z) >= 2.5) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Access: ${n} ${z.num || ''} has no 1.50 m turning circle` }); if (/hall|corridor|passage/i.test(n) && Math.min(z.w, z.h) < 1.2) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Access: ${n} ${z.num || ''} is ${fmt(Math.min(z.w, z.h))} m wide, under 1.20 m` }); }
+  for (const o of model.openings) { if (o.type !== 'door' || o.reno === 'demo') continue; const w = wallById(o.wid); if (w && isExtWall(w) && o.w < CODE().door - 1e-4) out.push({ kind: 'opening', id: o.id, st: w.st, msg: `Access: entrance door ${fmt(o.w)} m wide, under ${fmt(CODE().door)} m` }); }
+  for (const z of model.zones) { const n = String(z.name); if (/bath|shower|\bwc\b|toilet/i.test(n) && Math.min(z.w, z.h) < 1.5 && areaOf(z) >= 2.5) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Access: ${n} ${z.num || ''} has no 1.50 m turning circle` }); if (/hall|corridor|passage/i.test(n) && Math.min(z.w, z.h) < CODE().corr - 1e-4) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Access: ${n} ${z.num || ''} is ${fmt(Math.min(z.w, z.h))} m wide, under ${fmt(CODE().corr)} m` }); if (!NO_DAYLIGHT.test(n) && !/hall|corridor|bath|wc|toilet|store|utility/i.test(n) && ceilOf(z) < CODE().ceil - 1e-3) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `${n} ${z.num || ''}: ceiling ${fmt(ceilOf(z))} m, under ${fmt(CODE().ceil)} m (${CODE().n})` }); }
   // clashes: columns in doorways, beams below opening heads, objects through walls
   for (const o of model.openings) { const w = wallById(o.wid); if (!w) continue; const g = wgeo(w), c = { x: w.x1 + g.ux * o.pos, y: w.y1 + g.uy * o.pos };
     for (const cl of model.columns) if (cl.st === w.st && Math.abs((cl.x - w.x1) * g.ux + (cl.y - w.y1) * g.uy - o.pos) < o.w / 2 + Math.max(cl.w, cl.d) / 2 - .01 && Math.abs((cl.x - w.x1) * g.nx + (cl.y - w.y1) * g.ny) < w.t / 2 + Math.max(cl.w, cl.d) / 2) out.push({ kind: 'column', id: cl.id, st: cl.st, msg: `Clash: column in the ${o.type} opening` });
     for (const b of model.beams) if (b.st === w.st && b.top - b.h < o.sill + o.h - .01 && segDistPts(c, [b.x1, b.y1], [b.x2, b.y2]).d < b.w / 2 + w.t / 2) out.push({ kind: 'beam', id: b.id, st: b.st, msg: `Clash: beam soffit ${fmt(b.top - b.h)} m is below the ${o.type} head ${fmt(o.sill + o.h)} m` }); }
   for (const f of model.furniture) { if (FURN[f.type] && FURN[f.type].h === 0 || f.type === 'tree' || f.type === 'car') continue; const cs = furnCorners(f); const hit = model.walls.find(w => { if (w.st !== f.st) return false; const g = wgeo(w), L = wlen(w), al = cs.map(([x, y]) => (x - w.x1) * g.ux + (y - w.y1) * g.uy), sd = cs.map(([x, y]) => (x - w.x1) * g.nx + (y - w.y1) * g.ny); if (Math.max(...al) < .05 || Math.min(...al) > L - .05) return false; return segDist({ x: f.x, y: f.y }, w).d < w.t / 2 || Math.max(...sd) > w.t / 2 + .05 && Math.min(...sd) < -w.t / 2 - .05; }); if (hit) out.push({ kind: 'furn', id: f.id, st: f.st, msg: `Clash: ${FURN[f.type] ? FURN[f.type].label : 'object'} runs into a wall` }); }
   // fire: rough travel distance from each room to an exit (external door, or a stair above the ground floor)
-  { const gnd = stories()[0]; for (const z of model.zones) { const st = storyOf(z.st); if (!st) continue; const c = centerOf(z), ex = []; for (const o of model.openings) { const w = wallById(o.wid); if (o.type === 'door' && w && w.st === z.st && isExtWall(w)) { const g = wgeo(w); ex.push([w.x1 + g.ux * o.pos, w.y1 + g.uy * o.pos]); } } if (gnd && st.id !== gnd.id) for (const s of model.stairs) if (s.st === z.st || storyAbove(s.st) && storyAbove(s.st).id === z.st) ex.push([s.x + s.w / 2, s.y + s.h / 2]); if (!ex.length) continue; const d = Math.min(...ex.map(([x, y]) => Math.abs(x - c[0]) + Math.abs(y - c[1]))); if (d > 30) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Fire: about ${Math.round(d)} m from ${z.name} to the nearest exit, over 30 m` }); } }
+  { const gnd = stories()[0]; for (const z of model.zones) { const st = storyOf(z.st); if (!st) continue; const c = centerOf(z), ex = []; for (const o of model.openings) { const w = wallById(o.wid); if (o.type === 'door' && w && w.st === z.st && isExtWall(w)) { const g = wgeo(w); ex.push([w.x1 + g.ux * o.pos, w.y1 + g.uy * o.pos]); } } if (gnd && st.id !== gnd.id) for (const s of model.stairs) if (s.st === z.st || storyAbove(s.st) && storyAbove(s.st).id === z.st) ex.push([s.x + s.w / 2, s.y + s.h / 2]); if (!ex.length) continue; const d = Math.min(...ex.map(([x, y]) => Math.abs(x - c[0]) + Math.abs(y - c[1]))); if (d > CODE().travel) out.push({ kind: 'zone', id: z.id, st: z.st, msg: `Fire: about ${Math.round(d)} m from ${z.name} to the nearest exit, over ${CODE().travel} m` }); } }
   for (const q of model.pipes || []) if (q.sys === 'drain' && (q.fall || 0) < 1) out.push({ kind: 'pipe', id: q.id, st: q.st, msg: `Drainage: fall ${fmt(q.fall || 0, 1)}%, under 1% (1:100)` });
   for (const r of model.ramps || []) { const sl = rampSlope(r); if (sl > 1 / 12 + 1e-4) out.push({ kind: 'ramp', id: r.id, st: r.st, msg: `Ramp: slope 1:${(1 / sl).toFixed(1)}, steeper than 1:12` }); if (Math.min(r.w, r.h) < .9) out.push({ kind: 'ramp', id: r.id, st: r.st, msg: `Ramp: width ${fmt(Math.min(r.w, r.h))} m, under 0.90 m` }); }
   chkCache = { v: ver, list: out }; return out;
@@ -3869,7 +4047,7 @@ window.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('#redo') : $('#undo')).click(); }
   if (e.key === 'Enter' && chain) finishChain(false);
   if (e.key === 'Escape') { cancelOp(); if (chain) finishChain(false); sel = null; setTool('select'); closeDialog(); openNav(false); }
-  if (!e.ctrlKey && !e.metaKey && !e.altKey && $('#dlgBg').hidden) { const k = e.key.toLowerCase(); if (KEYS[k] && NAMES[KEYS[k]]) setTool(KEYS[k]); else if (k === '?') openShortcuts(); else if ('1234'.includes(k) && k) setView(['plan', '3d', 'split', 'section'][Number(k) - 1]); }
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && $('#dlgBg').hidden) { const k = e.key.toLowerCase(); if (walk.on && 'wasd'.includes(k) && k) { walk.keys.add(k); walkLoop(); } else if (KEYS[k] && NAMES[KEYS[k]]) setTool(KEYS[k]); else if (k === '?') openShortcuts(); else if ('1234'.includes(k) && k) setView(['plan', '3d', 'split', 'section'][Number(k) - 1]); }
 });
 
 /* ================= AI design assistant ================= */
@@ -3881,6 +4059,9 @@ Units are metres. Plan coordinates: x grows to the right (east), y grows downwar
 - columns: centre x,y, size w x d, height h, round true/false.
 - slabs: rectangle x,y (top-left), w,h, thickness t; the top of a slab is at its story's elevation. Every story above ground needs floor slabs, leaving a hole over stairs.
 - roofs: rectangle x,y,w,h (outer size including about 0.5 m overhang), shape gable or flat, pitch in degrees, base = height above its story where the roof starts (usually the wall height), ridge "x" or "y".
+- generate_layout {bedrooms, baths, area, plot_w?, plot_d?, option 1-3}: builds a whole floor plan option (walls, doors, windows, rooms) next to what is drawn. Use it when asked to design or lay out a house or flat from a brief.
+- curve_wall {id, bulge}: bends a wall into an arc, bulge in metres at its middle (+ left).
+- add_ramp (rectangle, dir, rise), add_shaft (rectangle, thru true/false), add_dormer (rectangle on a roof, face n/e/s/w, dh), add_morph (rectangle or pts, mh height, elev), add_callout (rectangle, scale 5/10/20/50), add_pipe (x1,y1,x2,y2, sys drain/water/hot/heat/gas/duct/vent, d, z, fall %), add_footing (x1..y2, w, d, top), add_contour (x1..y2, z).
 - stairs: rectangle x,y,w,h, dir = n/e/s/w is the direction you walk up. Optional shape "L" (quarter landing) or "U" (half landing) with turn "l"/"r" and flight width fw (default 1.0); an L or U stair needs a rectangle at least about 2.2 m on both sides. A stair rises to the next story; about 0.28 m of run per riser, so a 3.0 m story needs about 4.2 m of run (allow 3.5 m minimum), width 0.9-1.2.
 - zones (rooms): rectangle x,y,w,h on the inside faces of walls, name, area = w*h. Rooms should have sensible sizes (bedroom 10-16 m2, bath 4-7, living 18-35) and each needs a door.
 - dims: dimension line from (x1,y1) to (x2,y2) with offset off.
@@ -4017,7 +4198,10 @@ function applyActions(actions) {
           const o = mk.opening(w, a.type, pos, a); if (a.ref) refs[a.ref] = o.id; keep(o, w.st); break;
         }
         case 'add_column': { const st = resolveSt(a.story); keep(mk.column(st, num(a.x), num(a.y), a), st); break; }
-        case 'add_slab': case 'add_roof': case 'add_stair': case 'add_zone': case 'add_site': { const st = resolveSt(a.story), o = mk.rect(a.op.slice(4), st, a.pts ? null : R(a), a); if (a.ref) refs[a.ref] = o.id; keep(o, st); break; }
+        case 'generate_layout': { const Ls = genLayouts({ bed: Math.min(6, Math.max(0, Math.round(num(a.bedrooms, 3)))), bath: Math.min(4, Math.max(1, Math.round(num(a.baths, 1)))), area: Math.max(30, num(a.area, 110)), pw: num(a.plot_w, 0), pd: num(a.plot_d, 0) }); buildLayout(Ls[Math.min(2, Math.max(0, Math.round(num(a.option, 1)) - 1))]); n++; break; }
+        case 'curve_wall': { const w = wallById(refs[a.id] || a.id); if (w && Math.abs(num(a.bulge, 0)) > .02) { const g = wgeo(w), sg = arcSegs(w, [w.x1, w.y1], [(w.x1 + w.x2) / 2 + g.nx * num(a.bulge), (w.y1 + w.y2) / 2 + g.ny * num(a.bulge)], [w.x2, w.y2]); if (sg) n++; } else errs.push('curve_wall: no wall ' + a.id); break; }
+        case 'add_pipe': case 'add_footing': case 'add_contour': { const st = resolveSt(a.story), o = mk.line(a.op.slice(4), st, num(a.x1), num(a.y1), num(a.x2), num(a.y2), a); if (a.ref) refs[a.ref] = o.id; keep(o, st); break; }
+        case 'add_slab': case 'add_roof': case 'add_stair': case 'add_zone': case 'add_site': case 'add_ramp': case 'add_shaft': case 'add_dormer': case 'add_morph': case 'add_callout': { const st = resolveSt(a.story), o = mk.rect(a.op.slice(4), st, a.pts ? null : R(a), a); if (a.ref) refs[a.ref] = o.id; keep(o, st); break; }
         case 'add_grid': { const o = mk.grid(num(a.x1), num(a.y1), num(a.x2), num(a.y2), a); if (a.ref) refs[a.ref] = o.id; n++; break; }
         case 'add_fixture': { const st = resolveSt(a.story), o = mk.fix(st, num(a.x), num(a.y), a); keep(o, st); break; }
         case 'add_skylight': { const st = resolveSt(a.story), o = mk.sky(st, num(a.x) + num(a.w, defaults.sky.w) / 2, num(a.y) + num(a.h, defaults.sky.h) / 2, a); keep(o, st); break; }

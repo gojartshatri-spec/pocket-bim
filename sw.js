@@ -1,5 +1,5 @@
 // Pocket BIM service worker: app shell is precached so the app opens offline.
-const VERSION = 'cb562c422b';
+const VERSION = '09392befa7';
 const CACHE = 'pocketbim-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
